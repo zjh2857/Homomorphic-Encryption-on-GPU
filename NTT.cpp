@@ -2,7 +2,7 @@
 using namespace std;
 
 const long long M = 998244353;
-const long long N = 8;
+const long long N = 32;
 long long Ninv;
 long long revphi[N/2];
 long long revphiinv[N/2];
@@ -119,9 +119,15 @@ long long* INTT(long long* a){
     swapInv(a);
     return a;
 }
+// __global__ void NTT(long long* a){
+//     int i = threa
+// } 
 
 int main(){
-    long long a[N] = {0,0,0,0,0,0,1,2};
+    long long a[N];
+    for(int i = 0; i < N;i++){
+        a[i] = (i * 141 + 54) % 37;
+    }
     init();
     NTT(a);
     INTT(a);
