@@ -1,0 +1,3 @@
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/build/CMakeFiles/HE_on_GPU.dir

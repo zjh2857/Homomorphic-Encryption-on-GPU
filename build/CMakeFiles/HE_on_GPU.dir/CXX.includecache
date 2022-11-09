@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/encoder.h
+complex
+-
+vector
+-
+typedf.h
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/typedf.h
+
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/test.cpp
+encoder.h
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/encoder.h
+iostream
+-
+
+/mnt/c/Users/zhaoj/Desktop/homomorphic encryption on gpu/typedf.h
+vector
+-
+complex
+-
+

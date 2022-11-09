@@ -1,4 +1,7 @@
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
+
 using namespace std;
 
 const long long M = 998244353;
@@ -126,12 +129,27 @@ long long* INTT(long long* a){
 int main(){
     long long a[N];
     for(int i = 0; i < N;i++){
-        a[i] = (i * 141 + 54) % 37;
+        a[i] = i*1235%100000;
     }
-    init();
-    NTT(a);
-    INTT(a);
     for(int i = 0; i < N; i++){
         cout << a[i] << " ";
+    }
+    cout << endl;
+    long long b[N];
+    for(int i = 0; i < N;i++){
+        b[i] = i*2;
+    }
+    long long c[N];
+    init();
+    INTT(a);
+    // INTT(b);
+    srand((int)time(0)); 
+    for(int i = 0; i < N; i++){
+        // cout << a[i] <<"," << b[i] << endl;
+        c[i] = (a[i]+(rand()%2)-1)%M;
+    }
+    NTT(c);
+    for(int i = 0; i < N; i++){
+        cout << c[i] << " ";
     }
 }
