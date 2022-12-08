@@ -1,9 +1,7 @@
 #pragma once
-#include <vector>
-#include <complex>
+
 using namespace std;
-typedef complex<double> dcomplex;
-typedef vector<double> doubleArray;
-typedef vector<long long> IntegerArray;
-typedef vector<complex<double>> complexArray;
-typedef vector<vector<complex<double>>> complexMatrix;
+
+typedef double* doubleArray;
+typedef unsigned long long* IntegerArray;
+typedef u64 unsigned long long;

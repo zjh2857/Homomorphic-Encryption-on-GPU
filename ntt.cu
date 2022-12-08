@@ -16,10 +16,12 @@ r-'ｧ'"´/　 /!　ﾊ 　ハ　 !　　iヾ_ﾉ　i　ｲ　iゝ、ｲ人レ�
 
 */
 #include <iostream>
+#include "freshman.h"
+
 using namespace std;
 
 const long long M = 998244353;
-const long long N = 8;
+const long long N = 1024;
 long long l = 0;
 long long Ninv;
 long long revphi[N];
@@ -135,7 +137,7 @@ long long* INTT(long long* a){
     return a;
 }
 
-__global__ void cuNTT(long long* a,long long* revphi,long long l){
+__global__ void cuNTT(long long* a,long long *b,long long* revphi,long long l){
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     for(int i = 0; i < l; i++){
         int t = (N/2) >> i;
@@ -149,7 +151,25 @@ __global__ void cuNTT(long long* a,long long* revphi,long long l){
     }
 }
 
-
+__global__ void cuNttSuffle(long long* a,long long *b, long long* revphi,long long l){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    long long val = a[idx];
+    
+    for(int i = 0; i < l; i++){
+        int t = (N/2) >> i;
+        long long r = revphi[idx/t/2];
+        bool b = idx & t;
+        long long getVal = __shfl_xor(val,t,32);
+        // long long v = (r * getVal) % M;
+        if(b){
+            val = (getVal - (val * r)%M + 2 * M) % M;
+        }else{
+            val = (val + (getVal * r)%M + 2 * M) % M;
+        }
+        __syncthreads();
+    }
+    b[idx] = val;
+}
 __global__ void cuINTT(long long* a,long long* revphiinv,long long l){
     
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -181,8 +201,9 @@ int main(){
     }
     init();
     int nByte = N * sizeof(long long);
-    long long *a_d,*revphi_d,*revphiinv_d,*bitrevl_d;
+    long long *a_d,*b_d,*revphi_d,*revphiinv_d,*bitrevl_d;
     cudaMalloc(&a_d,nByte);
+    cudaMalloc(&b_d,nByte);
     cudaMemcpy(a_d,a,nByte,cudaMemcpyHostToDevice);
     cudaMalloc(&revphi_d,nByte);
     cudaMemcpy(revphi_d,revphi,nByte,cudaMemcpyHostToDevice);
@@ -201,16 +222,29 @@ int main(){
     dim3 block(N);
     dim3 grid(N/block.x); 
     long long* res = (long long *)malloc(nByte);
-    cuNTT<<<grid_half,block_half>>>(a_d,revphi_d,l);
+    double start = cpuSecond();
+    for(int i = 0; i < 100000;i++){
+        cuNttSuffle<<<1,N>>>(a_d,b_d,revphi_d,l);
+    } 
+    cudaMemcpy(res,b_d,nByte,cudaMemcpyDeviceToHost);
+    printf("Suffle time%lf\n",cpuSecond()-start);
+    start = cpuSecond();
+    for(int i = 0; i < 100000;i++){
+        cuNTT<<<1,N/2>>>(a_d,b_d,revphi_d,l);
+    } 
     cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
-    print(res);
-    cuSwapInv<<<grid,block>>>(a_d,bitrevl_d);
-    cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
-    print(res);
-    cuINTT<<<grid_half,block_half>>>(a_d,revphiinv_d,l);
-    cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
-    print(res);
-    cuSwapInv<<<grid,block>>>(a_d,bitrevl_d);
-    cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
-    print(res);
+    printf("cuNTT time%lf\n",cpuSecond() - start);
+    // print(res);
+    // cuNTT<<<grid_half,block_half>>>(a_d,revphi_d,l);
+    // cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
+    // print(res);
+    // cuSwapInv<<<grid,block>>>(a_d,bitrevl_d);
+    // cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
+    // print(res);
+    // cuINTT<<<grid_half,block_half>>>(a_d,revphiinv_d,l);
+    // cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
+    // print(res);
+    // cuSwapInv<<<grid,block>>>(a_d,bitrevl_d);
+    // cudaMemcpy(res,a_d,nByte,cudaMemcpyDeviceToHost);
+    // print(res);
 }
