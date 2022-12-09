@@ -1,3 +1,5 @@
+#pragma once
+
 #include "random.cuh"
 #include "polycalc.cuh"
 __global__ void print(unsigned long long* a);
@@ -20,10 +22,10 @@ class doublePoly{
     void set(unsigned long long *b){
         this->b = b;
     }
-    ~doublePoly(){
-        if(a)cudaFree(a);
-        if(b)cudaFree(b);
-    }
+    // ~doublePoly(){
+    //     if(a)cudaFree(a);
+    //     if(b)cudaFree(b);
+    // }
 };
 
 class cipherText:public doublePoly{
@@ -65,7 +67,7 @@ class keyGen{
         mu = (mu1 / q).low;
         ntt = 0;
 
-        unsigned long long *pub_a,*pub_b,*pri_b,*e;
+        unsigned long long *pub_a,*pub_b,*pri_b;
         Check(cudaMalloc((void**)&pub_a, N * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&pub_b, N * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&pri_b, N * sizeof(unsigned long long)));
@@ -80,15 +82,15 @@ class keyGen{
         genRandom<<<N/1024,1024>>>(pri_b,scale);
         forwardNTT(pri_b,N,ntt,q,mu,q_bit,psiTable);
         
-        polymuladd<<<N/1024,1024>>>(pri_b,pub_b,pub_a,pub_a,N,q);
+        polymuladd<<<N/1024,1024>>>(pri_b,pub_b,pub_a,pub_a,q,mu,q_bit);
         pub.set(pub_a,pub_b);
         pri.set(pri_b);
 
     };
-    ~keyGen(){
-        cudaFree(psiTable);
-        cudaFree(psiinvTable); 
-    }
+    // ~keyGen(){
+    //     cudaFree(psiTable);
+    //     cudaFree(psiinvTable); 
+    // }
 };
 
 class Encryptor{
@@ -124,25 +126,28 @@ class Encryptor{
             Check(cudaMalloc((void**)&e, N * sizeof(unsigned long long)));
         };
         cipherText encrypt(unsigned long long* plaintext,publicKey key){
-            unsigned long long *a,*b,*u,*e;
+            unsigned long long *a,*b;
 
             Check(cudaMalloc((void**)&b, N * sizeof(unsigned long long)));
             Check(cudaMalloc((void**)&a, N * sizeof(unsigned long long)));
 
-
+            
             genRandom<<<N/1024,1024>>>(u,scale);
             forwardNTT(u,N,ntt,q,mu,q_bit,psiTable);
-            
+            // print<<<1,1>>>(u);
             genRandom<<<N/1024,1024>>>(e,1);
             forwardNTT(e,N,ntt,q,mu,q_bit,psiTable);
             
-            polymul(key.a,u,a,N,q);
-            polymul(key.b,u,b,N,q);
             
-            polyadd(a,plaintext,a,N,q);
-            polyadd(a,e,a,N,q);
-            polyadd(b,e,b,N,q);
-
+            polymul<<<N/1024,1024>>>(key.a,u,a,q,mu,q_bit);
+            
+            // printf("%p,%p,%p,%p\n",key.a,key.b,u,b);
+            polymul<<<N/1024,1024>>>(key.b,u,b,q,mu,q_bit);
+            // print<<<1,1>>>(b);
+            
+            polyadd<<<N/1024,1024>>>(a,plaintext,a,N,q);
+            polyadd<<<N/1024,1024>>>(a,e,a,N,q);
+            polyadd<<<N/1024,1024>>>(b,e,b,N,q);
             // genRandom<<<N/1024,1024>>>(a,scale);
 
             // forwardNTT(a,N,ntt,q,mu,q_bit,psiTable);
@@ -160,6 +165,7 @@ class Encryptor{
             // polymul<<<N/1024,1024>>>(b,plaintext,b,N,q);
             
             // polymul<<<N/1024,1024>>>(a,plaintext,a,N,q);
+            // print<<<1,1>>>(a);
             cipherText res;
             res.set(a,b);
             return res;
@@ -185,10 +191,12 @@ class Encryptor{
             // genRandom<<<N/1024,1024>>>(e,0);
             
             // forwardNTT(e,N,ntt,q,mu,q_bit,psiTable);
-            polymul<<<N/1024,1024>>>(b,s,res,N,q);
+            // print<<<1,1>>>(b);
+            polymul<<<N/1024,1024>>>(b,s,res,q,mu,q_bit);
+            // print<<<1,1>>>(res);
+
             polyminus<<<N/1024,1024>>>(a,res,res,N,q);
 
-            // print<<<1,1>>>(t);
             return res;
         }
 };

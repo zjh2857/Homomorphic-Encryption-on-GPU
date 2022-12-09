@@ -113,7 +113,7 @@ class Encoder{
             Check(cudaMemcpy(fft_in, host_in, n * sizeof(cufftDoubleComplex), cudaMemcpyHostToDevice));
             cufftExecZ2D(cufftInverseHandle, fft_in, fft_out);
             delta<<<N/1024,1024>>>(fft_out,ntt_in,scale,q);
-            print<<<1,1>>>(ntt_in);
+            // print<<<1,1>>>(ntt_in);
             forwardNTT(ntt_in,N,ntt,q,mu,q_bit,psiTable);
             return ntt_in;
         }
