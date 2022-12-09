@@ -133,7 +133,7 @@ class CKKSEncoder:
 M = 8
 
 encoder = CKKSEncoder(M,64)
-z = np.array([3 +4j, 2 - 1j])
+z = np.array([-3 +4j, -2 - 1j])
 print("明文：",z)
 p = encoder.encode(z)
 p.coef = p.coef #+ [160,90,160,45]

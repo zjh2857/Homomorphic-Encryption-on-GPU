@@ -6,7 +6,7 @@
 #include "device_launch_parameters.h"
 #include "cufft.h"
 #include <iostream>
-
+// typedef unsigned long long long long;
 #define Check(call)														\
 {																		\
 	cudaError_t status = call;											\
@@ -17,15 +17,42 @@
 	}																	\
 }
 using namespace std;
-__global__ void delta(cufftDoubleReal* in,unsigned long long* out,double scale){
-    int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    out[tid] = (unsigned long long)(in[tid] * scale); 
-}
-__global__ void deltainv(unsigned long long* in,cufftDoubleReal* out,double scale){
-    int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    out[tid] = (double)(in[tid] * 1.0 / scale); 
-}
+__global__ void delta(cufftDoubleReal* in,unsigned long long* out,double scale,unsigned long long q){
 
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    long long t = in[tid] * scale;
+
+    t = (t + q) % q;
+    out[tid] = t; 
+    // if(tid < 10 ){
+    //     printf("!%d:%lf,%llu\n",tid,in[tid],out[tid]);
+    // }
+
+}
+__global__ void deltainv(unsigned long long* in,cufftDoubleReal* out,double scale,unsigned long long q){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    long long t = in[tid];
+    if(t > q/2 && t - 1 <= q/2){
+        printf("!!!!!!!!!!!!\n");
+    }
+    if(t > q/2){
+        t -= q;
+    }
+    out[tid] = (double)(t * 1.0 / scale);
+    // if(out[tid] > q/2){
+    //     out[tid] -= q;
+    // } 
+
+    // if(tid < 10 ){
+    //     printf("$%d:%llu,%lf\n",tid,in[tid],out[tid]);
+    // }
+    // if(tid == 0){
+    //     printf("$%lf",out[tid]);
+    // }
+}
+__global__ void print(unsigned long long* a);
+//     printf("%llu\n",a[0]);
+// }
 class Encoder{
     public:
         int n;
@@ -44,6 +71,7 @@ class Encoder{
         Encoder(int n,double scale){
             this->n = n;
             N = n * 2;
+            n += 1;
             // this->N = N;
             this->scale = scale;
             getParams(q, psi, psiinv, ninv, q_bit, N);
@@ -72,7 +100,6 @@ class Encoder{
             cufftDoubleReal *fft_out;
             unsigned long long *ntt_in;
             cudaStream_t ntt = 0;
-
             Check(cudaMallocHost((void**)&host_in, n * sizeof(cufftDoubleComplex)));
             Check(cudaMalloc((void**)&ntt_in, N * sizeof(unsigned long long)));
             Check(cudaMalloc((void**)&fft_in, n * sizeof(cufftDoubleComplex)));
@@ -85,7 +112,8 @@ class Encoder{
             
             Check(cudaMemcpy(fft_in, host_in, n * sizeof(cufftDoubleComplex), cudaMemcpyHostToDevice));
             cufftExecZ2D(cufftInverseHandle, fft_in, fft_out);
-            delta<<<N/1024,1024>>>(fft_out,ntt_in,scale);
+            delta<<<N/1024,1024>>>(fft_out,ntt_in,scale,q);
+            print<<<1,1>>>(ntt_in);
             forwardNTT(ntt_in,N,ntt,q,mu,q_bit,psiTable);
             return ntt_in;
         }
@@ -102,15 +130,15 @@ class Encoder{
 
 
             inverseNTT(encodeVec,N,ntt,q,mu,q_bit,psiinvTable);
-            deltainv<<<N/1024,1024>>>(encodeVec,fft_out,scale);
-
-            cufftExecD2Z(cufftInverseHandle, fft_out, fft_in);
+            // print<<<1,1>>>(encodeVec);
+            deltainv<<<N/1024,1024>>>(encodeVec,fft_out,scale,q);
+            cufftExecD2Z(cufftForwrdHandle, fft_out, fft_in);
 
             Check(cudaMemcpy(host_in, fft_in, n * sizeof(cufftDoubleComplex), cudaMemcpyDeviceToHost));
             double *res;
             res = (double *)malloc(n * sizeof(double));
             for(int i = 0; i < n ; i++){
-                res[i] = host_in[i].x;
+                res[i] = host_in[i].x / N;
             }
             return res;
             // return encodeVec;

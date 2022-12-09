@@ -1,0 +1,1 @@
+/usr/local/cuda/bin/nvcc   -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -shared -dlink CMakeFiles/ckks.dir/ckkstest.cu.o -o CMakeFiles/ckks.dir/cmake_device_link.o  -lcufft 
