@@ -1,6 +1,6 @@
 
 __global__ void genRandom(unsigned long long *randomVec,double scale){
-    if(scale == 1){
+    if(scale != 114514){
         scale = 0;
     }
     int tid = blockDim.x * blockIdx.x + threadIdx.x;

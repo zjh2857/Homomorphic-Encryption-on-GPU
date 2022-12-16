@@ -2,6 +2,7 @@
 
 #include "random.cuh"
 #include "polycalc.cuh"
+// #include "evaluator.cuh"
 __global__ void print(unsigned long long* a);
 class doublePoly{
     public:
@@ -22,6 +23,32 @@ class doublePoly{
     void set(unsigned long long *b){
         this->b = b;
     }
+    // ~doublePoly(){
+    //     if(a)cudaFree(a);
+    //     if(b)cudaFree(b);
+    // }
+};
+class triplePoly{
+    public:
+    unsigned long long* a;
+    unsigned long long* b;
+    unsigned long long* c;
+    triplePoly(unsigned long long* a,unsigned long long *b,unsigned long long *c){
+        this->a = a;
+        this->b = b;
+        this->c = c;
+    }
+    triplePoly(){
+        this->a = nullptr;
+        this->b = nullptr;
+        this->c = nullptr;
+    }
+    void set(unsigned long long* a,unsigned long long *b,unsigned long long *c){
+        this->a = a;
+        this->b = b;
+        this->c = c;
+    }
+
     // ~doublePoly(){
     //     if(a)cudaFree(a);
     //     if(b)cudaFree(b);
@@ -195,6 +222,23 @@ class Encryptor{
             polymul<<<N/1024,1024>>>(b,s,res,q,mu,q_bit);
             // print<<<1,1>>>(res);
 
+            polyminus<<<N/1024,1024>>>(a,res,res,N,q);
+
+            return res;
+        }
+        unsigned long long* decrypt(triplePoly& cipher,privateKey key){
+            unsigned long long *a,*b,*c,*s;
+            unsigned long long *res;
+
+            a = cipher.a;
+            b = cipher.b;
+            c = cipher.c;
+            s = key.b;
+            Check(cudaMalloc((void**)&res, N * sizeof(unsigned long long)));
+            polymul<<<N/1024,1024>>>(c,s,res,q,mu,q_bit);
+            polymul<<<N/1024,1024>>>(res,s,res,q,mu,q_bit);
+
+            polymulminus<<<N/1024,1024>>>(b,s,res,res,q,mu,q_bit);
             polyminus<<<N/1024,1024>>>(a,res,res,N,q);
 
             return res;

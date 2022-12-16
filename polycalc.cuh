@@ -72,3 +72,27 @@ __global__ void polymuladd(unsigned long long a[], unsigned long long b[], unsig
     d[i] = (rc.low + c[i])%q;
 
 }
+
+__global__ void polymulminus(unsigned long long a[], unsigned long long b[], unsigned long long c[],unsigned long long d[],unsigned long long q, unsigned long long mu, int qbit)
+{
+    register int i = blockIdx.x * 256 + threadIdx.x;
+
+    register unsigned long long ra = a[i];
+    register unsigned long long rb = b[i];
+
+    uint128_t rc, rx;
+
+    mul64(ra, rb, rc);
+
+    rx = rc >> (qbit - 2);
+
+    mul64(rx.low, mu, rx);
+
+    uint128_t::shiftr(rx, qbit + 2);
+
+    mul64(rx.low, q, rx);
+
+    sub128(rc, rx);
+    d[i] = (rc.low + q - c[i])%q;
+
+}

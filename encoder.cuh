@@ -6,6 +6,8 @@
 #include "device_launch_parameters.h"
 #include "cufft.h"
 #include <iostream>
+#include <cmath>
+#include "cublas_v2.h"
 // typedef unsigned long long long long;
 #define Check(call)														\
 {																		\
@@ -17,11 +19,11 @@
 	}																	\
 }
 using namespace std;
-__global__ void delta(cufftDoubleReal* in,unsigned long long* out,double scale,unsigned long long q){
+const double pi = 3.14159265359;;
+__global__ void delta(cuDoubleComplex* in,unsigned long long* out,double scale,unsigned long long q){
 
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    long long t = in[tid] * scale;
-
+    long long t = in[tid].x * scale;
     t = (t + q) % q;
     out[tid] = t; 
     // if(tid < 10 ){
@@ -29,16 +31,14 @@ __global__ void delta(cufftDoubleReal* in,unsigned long long* out,double scale,u
     // }
 
 }
-__global__ void deltainv(unsigned long long* in,cufftDoubleReal* out,double scale,unsigned long long q){
+__global__ void deltainv(unsigned long long* in,cuDoubleComplex* out,double scale,unsigned long long q){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     long long t = in[tid];
-    if(t > q/2 && t - 1 <= q/2){
-        printf("!!!!!!!!!!!!\n");
-    }
     if(t > q/2){
         t -= q;
     }
-    out[tid] = (double)(t * 1.0 / scale);
+    out[tid].x = (double)(t * 1.0 / scale);
+    out[tid].y = 0;
     // if(out[tid] > q/2){
     //     out[tid] -= q;
     // } 
@@ -53,6 +53,30 @@ __global__ void deltainv(unsigned long long* in,cufftDoubleReal* out,double scal
 __global__ void print(unsigned long long* a);
 //     printf("%llu\n",a[0]);
 // }
+__global__ void print(cuDoubleComplex* h_A){
+    for(int i = 0;i < 8; i++){
+        printf("%lf+%lfi\n",h_A[i].x,h_A[i].y);
+    }
+    printf("\n");
+}
+__global__ void initfft(cuDoubleComplex* h_A,int N){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    int i = tid/N;
+    int j = tid%N;
+    double real = cos(pi/N*i*(2*j+1));
+    double imag = sin(pi/N*i*(2*j+1));
+    h_A[i*N+j].x = real;
+    h_A[i*N+j].y = imag;
+}
+__global__ void initfftinv(cuDoubleComplex* h_A,int N){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    int i = tid/N;
+    int j = tid%N;
+    double real = cos(-pi/N*i*(2*j+1));
+    double imag = sin(-pi/N*i*(2*j+1));
+    h_A[i*N+j].x = real;
+    h_A[i*N+j].y = imag;
+}
 class Encoder{
     public:
         int n;
@@ -67,23 +91,41 @@ class Encoder{
         unsigned long long ninv;
         unsigned int q_bit;
         int BATCH = 1;
-        cufftHandle cufftForwrdHandle, cufftInverseHandle;
+        cuDoubleComplex *d_A, *inv_A;
+
+        cublasHandle_t handle;
+        cublasHandle_t handleinv;
+        // cufftHandle cufftForwrdHandle, cufftInverseHandle;
         Encoder(int n,double scale){
             this->n = n;
             N = n * 2;
-            n += 1;
             // this->N = N;
             this->scale = scale;
             getParams(q, psi, psiinv, ninv, q_bit, N);
             cudaMalloc(&psiTable, N * sizeof(unsigned long long));
             cudaMalloc(&psiinvTable, N * sizeof(unsigned long long));
+
             fillTablePsi128<<<N/1024,1024>>>(psi, q, psiinv, psiTable, psiinvTable, log2(N));
 
             uint128_t mu1 = uint128_t::exp2(q_bit * 2);
             mu = (mu1 / q).low;
 
-            cufftPlan1d(&cufftForwrdHandle, N, CUFFT_D2Z, BATCH);
-	        cufftPlan1d(&cufftInverseHandle, N, CUFFT_Z2D, BATCH);
+            cublasCreate(&handle);
+            cublasCreate(&handleinv);
+            // 在 显存 中为将要计算的矩阵开辟空间
+            cudaMalloc (
+                (void**)&d_A,    // 指向开辟的空间的指针
+                N*N * sizeof(cuDoubleComplex)    //　需要开辟空间的字节数
+            );
+            cudaMalloc (
+                (void**)&inv_A,    // 指向开辟的空间的指针
+                N*N * sizeof(cuDoubleComplex)    //　需要开辟空间的字节数
+            );
+            // 在 显存 中为将要存放运算结果的矩阵开辟空间
+            initfft<<<N*N/1024,1024>>>(d_A,N);
+            initfftinv<<<N*N/1024,1024>>>(inv_A,N);
+            // cufftPlan1d(&cufftForwrdHandle, N, CUFFT_D2Z, BATCH);
+	        // cufftPlan1d(&cufftInverseHandle, N, CUFFT_Z2D, BATCH);
         };
         // void encode(unsigned long long* plainVec){
         //     cudaStream_t ntt = 0;
@@ -96,45 +138,109 @@ class Encoder{
         //     // return encodeVec;
         // }
         unsigned long long* encode(double* plainVec){
-            cufftDoubleComplex *fft_in,*host_in;
-            cufftDoubleReal *fft_out;
+            cuDoubleComplex *fft_in,*host_in;
+            cuDoubleComplex *fft_out;
             unsigned long long *ntt_in;
             cudaStream_t ntt = 0;
-            Check(cudaMallocHost((void**)&host_in, n * sizeof(cufftDoubleComplex)));
+            Check(cudaMallocHost((void**)&host_in, N * sizeof(cuDoubleComplex)));
             Check(cudaMalloc((void**)&ntt_in, N * sizeof(unsigned long long)));
-            Check(cudaMalloc((void**)&fft_in, n * sizeof(cufftDoubleComplex)));
-            Check(cudaMalloc((void**)&fft_out, N * sizeof(cufftDoubleReal)));
+            Check(cudaMalloc((void**)&fft_in, N * sizeof(cuDoubleComplex)));
+            Check(cudaMalloc((void**)&fft_out, N * sizeof(cuDoubleComplex)));
             for(int i = 0; i < n; i++){
                 host_in[i].x = plainVec[i];
                 host_in[i].y = 0;
             }
-
+            for(int i = 0; i < n; i++){
+                host_in[N-i-1].x = plainVec[i];
+                host_in[N-i-1].y = 0;
+            }
             
-            Check(cudaMemcpy(fft_in, host_in, n * sizeof(cufftDoubleComplex), cudaMemcpyHostToDevice));
-            cufftExecZ2D(cufftInverseHandle, fft_in, fft_out);
+            Check(cudaMemcpy(fft_in, host_in, N * sizeof(cuDoubleComplex), cudaMemcpyHostToDevice));
+            cuDoubleComplex a, b;
+            a.x = 1;a.y = 0;b.x = 0;b.y = 0;
+
+            printf("%p,%p\n",fft_in,fft_out);
+            for(int i = 0; i < N; i++){
+                cublasZgemv (
+                    handle,    // blas 库对象
+                    CUBLAS_OP_T,    // 矩阵 A 属性参数
+                    N,    // A, C 的行数
+                    N,    // B, C 的列数
+                    &a,    // 运算式的 α 值
+                    d_A,    // A 在显存中的地址
+                    N,    // lda
+                    fft_in,    // B 在显存中的地址
+                    1,    // ldb
+                    &b,    // 运算式的 β 值
+                    fft_out,    // C 在显存中的地址(结果矩阵)
+                    1    // ldc
+                );
+            }
+            // for(int i = 0; i < N; i++){
+            //     cublasZgemv (
+            //         handle,    // blas 库对象
+            //         CUBLAS_OP_N,    // 矩阵 A 属性参数
+            //         N,    // A, C 的行数
+            //         N,    // B, C 的列数
+            //         &a,    // 运算式的 α 值
+            //         inv_A,    // A 在显存中的地址
+            //         N,    // lda
+            //         fft_out,    // B 在显存中的地址
+            //         1,    // ldb
+            //         &b,    // 运算式的 β 值
+            //         fft_in,    // C 在显存中的地址(结果矩阵)
+            //         1    // ldc
+            //     );
+            // }
+            // print<<<1,1>>>(fft_out);
+            // print<<<1,1>>>(fft_in);
+            // cudaDeviceSynchronize();
+            // exit(114514);
+            // cufftExecZ2D(cufftInverseHandle, fft_in, fft_out);
+            print<<<1,1>>>(fft_out);
             delta<<<N/1024,1024>>>(fft_out,ntt_in,scale,q);
+            // print<<<1,1>>>(fft_out);
             // print<<<1,1>>>(ntt_in);
             forwardNTT(ntt_in,N,ntt,q,mu,q_bit,psiTable);
+            print<<<1,1>>>(ntt_in);
             return ntt_in;
         }
         double* decode(unsigned long long* encodeVec){
-            cufftDoubleComplex *fft_in,*host_in;
-            cufftDoubleReal *fft_out;
+            cuDoubleComplex *fft_in,*host_in;
+            cuDoubleComplex *fft_out;
             unsigned long long *ntt_in;
             cudaStream_t ntt = 0;
 
-            Check(cudaMallocHost((void**)&host_in, n * sizeof(cufftDoubleComplex)));
+            Check(cudaMallocHost((void**)&host_in, n * sizeof(cuDoubleComplex)));
             Check(cudaMalloc((void**)&ntt_in, N * sizeof(unsigned long long)));
-            Check(cudaMalloc((void**)&fft_in, n * sizeof(cufftDoubleComplex)));
-            Check(cudaMalloc((void**)&fft_out, N * sizeof(cufftDoubleReal)));
+            Check(cudaMalloc((void**)&fft_in, N * sizeof(cuDoubleComplex)));
+            Check(cudaMalloc((void**)&fft_out, N * sizeof(cuDoubleComplex)));
 
 
             inverseNTT(encodeVec,N,ntt,q,mu,q_bit,psiinvTable);
             // print<<<1,1>>>(encodeVec);
             deltainv<<<N/1024,1024>>>(encodeVec,fft_out,scale,q);
-            cufftExecD2Z(cufftForwrdHandle, fft_out, fft_in);
 
-            Check(cudaMemcpy(host_in, fft_in, n * sizeof(cufftDoubleComplex), cudaMemcpyDeviceToHost));
+            cuDoubleComplex a, b;
+            a.x = 1;a.y = 0;b.x = 0;b.y = 0;
+            // print<<<1,1>>>(fft_out);
+            for(int i = 0; i < N; i++){
+                cublasZgemv (
+                    handleinv,    // blas 库对象
+                    CUBLAS_OP_N,    // 矩阵 A 属性参数
+                    N,    // A, C 的行数
+                    N,    // B, C 的列数
+                    &a,    // 运算式的 α 值
+                    inv_A,    // A 在显存中的地址
+                    N,    // lda
+                    fft_out,    // B 在显存中的地址
+                    1,    // ldb
+                    &b,    // 运算式的 β 值
+                    fft_in,    // C 在显存中的地址(结果矩阵)
+                    1    // ldc
+                );
+            }
+            Check(cudaMemcpy(host_in, fft_in, n * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost));
             double *res;
             res = (double *)malloc(n * sizeof(double));
             for(int i = 0; i < n ; i++){
