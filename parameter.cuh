@@ -34,17 +34,17 @@ void getParams(unsigned long long& q, unsigned long long& psi, unsigned long lon
     }
     else if (n == 4096)
     {
-        /*q = 288230376135196673;
+        q = 288230376135196673;
         psi = 60193018759093;
         psiinv = 236271020333049746;
         ninv = 288160007391023041;
-        q_bit = 58;*/
+        q_bit = 58;
 
-        q = 33538049;
-        psi = 2386;
-        psiinv = 26102329;
-        ninv = 33529861;
-        q_bit = 25;
+        // q = 33538049;
+        // psi = 2386;
+        // psiinv = 26102329;
+        // ninv = 33529861;
+        // q_bit = 25;
     }
     else if (n == 8192)
     {
@@ -129,3 +129,4 @@ void getParams30(unsigned& q, unsigned& psi, unsigned& psiinv, unsigned& ninv, u
         ninv = 13631281;
     }
 }
+// void getParms60(unsigned& q, unsigned& psi, unsigned& psiinv, unsigned& ninv, unsigned& q_bit, unsigned n)

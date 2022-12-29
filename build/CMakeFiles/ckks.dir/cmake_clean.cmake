@@ -1,6 +1,5 @@
 file(REMOVE_RECURSE
   "CMakeFiles/ckks.dir/ckkstest.cu.o"
-  "CMakeFiles/ckks.dir/ckkstest.cu.o.d"
   "CMakeFiles/ckks.dir/cmake_device_link.o"
   "ckks"
   "ckks.pdb"

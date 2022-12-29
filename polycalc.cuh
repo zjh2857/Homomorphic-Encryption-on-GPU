@@ -24,7 +24,7 @@ __global__ void polyminus(unsigned long long* a,unsigned long long* b,unsigned l
 // }
 __global__ void polymul(unsigned long long a[], unsigned long long b[], unsigned long long c[],unsigned long long q, unsigned long long mu, int qbit)
 {
-    register int i = blockIdx.x * 256 + threadIdx.x;
+    register int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     register unsigned long long ra = a[i];
     register unsigned long long rb = b[i];
@@ -51,7 +51,7 @@ __global__ void polymul(unsigned long long a[], unsigned long long b[], unsigned
 
 __global__ void polymuladd(unsigned long long a[], unsigned long long b[], unsigned long long c[],unsigned long long d[],unsigned long long q, unsigned long long mu, int qbit)
 {
-    register int i = blockIdx.x * 256 + threadIdx.x;
+    register int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     register unsigned long long ra = a[i];
     register unsigned long long rb = b[i];
@@ -75,7 +75,7 @@ __global__ void polymuladd(unsigned long long a[], unsigned long long b[], unsig
 
 __global__ void polymulminus(unsigned long long a[], unsigned long long b[], unsigned long long c[],unsigned long long d[],unsigned long long q, unsigned long long mu, int qbit)
 {
-    register int i = blockIdx.x * 256 + threadIdx.x;
+    register int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     register unsigned long long ra = a[i];
     register unsigned long long rb = b[i];

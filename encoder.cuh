@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include "cublas_v2.h"
+#include "rns.cuh"
 // typedef unsigned long long long long;
 #define Check(call)														\
 {																		\
@@ -20,16 +21,37 @@
 }
 using namespace std;
 const double pi = 3.14159265359;;
-__global__ void delta(cuDoubleComplex* in,unsigned long long* out,double scale,unsigned long long q){
+__global__ void delta(cuDoubleComplex* in,unsigned long long* out,double scale,unsigned long long q,int N){
 
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    long long t = in[tid].x * scale;
-    t = (t + q) % q;
+    long long t = in[tid].x / N  * scale;
+    t = (t+q)%q;
     out[tid] = t; 
+
     // if(tid < 10 ){
     //     printf("!%d:%lf,%llu\n",tid,in[tid],out[tid]);
     // }
 
+}
+__global__ void zerocnt(unsigned long long* a,int N){
+    int cnt = 0;
+    for(int i = 0; i < N; i++){
+        if(a[i] != 0){
+            printf("%d,%llu\t",i,a[i]);
+            cnt++;
+        }
+    }printf("\n");
+    printf("%d\n",cnt);
+}
+__global__ void eqcnt(unsigned long long* a,int N){
+    int cnt = 0;
+    for(int i = 1; i < N; i++){
+        if(a[i] != a[i-1]){
+            cnt++;
+            printf("%d,%llu\n",i,a[i]);
+        }
+    }printf("\n");
+    printf("%d\n",cnt);
 }
 __global__ void deltainv(unsigned long long* in,cuDoubleComplex* out,double scale,unsigned long long q){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -51,6 +73,8 @@ __global__ void deltainv(unsigned long long* in,cuDoubleComplex* out,double scal
     // }
 }
 __global__ void print(unsigned long long* a);
+__global__ void print_d(unsigned long long* a,int d);
+
 //     printf("%llu\n",a[0]);
 // }
 __global__ void print(cuDoubleComplex* h_A){
@@ -63,8 +87,8 @@ __global__ void initfft(cuDoubleComplex* h_A,int N){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     int i = tid/N;
     int j = tid%N;
-    double real = cos(pi/N*i*(2*j+1));
-    double imag = sin(pi/N*i*(2*j+1));
+    double real = cos(-pi/N*i*(2*j+1));
+    double imag = sin(-pi/N*i*(2*j+1));
     h_A[i*N+j].x = real;
     h_A[i*N+j].y = imag;
 }
@@ -72,8 +96,8 @@ __global__ void initfftinv(cuDoubleComplex* h_A,int N){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     int i = tid/N;
     int j = tid%N;
-    double real = cos(-pi/N*i*(2*j+1));
-    double imag = sin(-pi/N*i*(2*j+1));
+    double real = cos(pi/N*i*(2*j+1));
+    double imag = sin(pi/N*i*(2*j+1));
     h_A[i*N+j].x = real;
     h_A[i*N+j].y = imag;
 }
@@ -91,17 +115,21 @@ class Encoder{
         unsigned long long ninv;
         unsigned int q_bit;
         int BATCH = 1;
+        int decomposeSize;
+        RNS rns;
         cuDoubleComplex *d_A, *inv_A;
 
         cublasHandle_t handle;
         cublasHandle_t handleinv;
         // cufftHandle cufftForwrdHandle, cufftInverseHandle;
-        Encoder(int n,double scale){
+        Encoder(int n,double scale,int decomposeSize):rns(decomposeSize,scale){
             this->n = n;
+            this->decomposeSize = decomposeSize;
             N = n * 2;
             // this->N = N;
             this->scale = scale;
             getParams(q, psi, psiinv, ninv, q_bit, N);
+            printf("qqqqqqqqqqq%llu\n",q);
             cudaMalloc(&psiTable, N * sizeof(unsigned long long));
             cudaMalloc(&psiinvTable, N * sizeof(unsigned long long));
 
@@ -143,7 +171,7 @@ class Encoder{
             unsigned long long *ntt_in;
             cudaStream_t ntt = 0;
             Check(cudaMallocHost((void**)&host_in, N * sizeof(cuDoubleComplex)));
-            Check(cudaMalloc((void**)&ntt_in, N * sizeof(unsigned long long)));
+            Check(cudaMalloc((void**)&ntt_in, N * decomposeSize * sizeof(unsigned long long)));
             Check(cudaMalloc((void**)&fft_in, N * sizeof(cuDoubleComplex)));
             Check(cudaMalloc((void**)&fft_out, N * sizeof(cuDoubleComplex)));
             for(int i = 0; i < n; i++){
@@ -159,7 +187,7 @@ class Encoder{
             cuDoubleComplex a, b;
             a.x = 1;a.y = 0;b.x = 0;b.y = 0;
 
-            printf("%p,%p\n",fft_in,fft_out);
+            // printf("%p,%p\n",fft_in,fft_out);
             for(int i = 0; i < N; i++){
                 cublasZgemv (
                     handle,    // blas 库对象
@@ -176,33 +204,30 @@ class Encoder{
                     1    // ldc
                 );
             }
-            // for(int i = 0; i < N; i++){
-            //     cublasZgemv (
-            //         handle,    // blas 库对象
-            //         CUBLAS_OP_N,    // 矩阵 A 属性参数
-            //         N,    // A, C 的行数
-            //         N,    // B, C 的列数
-            //         &a,    // 运算式的 α 值
-            //         inv_A,    // A 在显存中的地址
-            //         N,    // lda
-            //         fft_out,    // B 在显存中的地址
-            //         1,    // ldb
-            //         &b,    // 运算式的 β 值
-            //         fft_in,    // C 在显存中的地址(结果矩阵)
-            //         1    // ldc
-            //     );
-            // }
             // print<<<1,1>>>(fft_out);
-            // print<<<1,1>>>(fft_in);
-            // cudaDeviceSynchronize();
-            // exit(114514);
-            // cufftExecZ2D(cufftInverseHandle, fft_in, fft_out);
-            print<<<1,1>>>(fft_out);
-            delta<<<N/1024,1024>>>(fft_out,ntt_in,scale,q);
-            // print<<<1,1>>>(fft_out);
-            // print<<<1,1>>>(ntt_in);
-            forwardNTT(ntt_in,N,ntt,q,mu,q_bit,psiTable);
+            delta<<<N/1024,1024>>>(fft_out,ntt_in,scale,q,N);
             print<<<1,1>>>(ntt_in);
+            for(int i = 0; i < 16; i++)
+            print_d<<<1,1>>>(ntt_in,i * (N/16));
+            // print<<<1,1>>>(ntt_in);
+            // print_d<<<1,1>>>(ntt_in,1967);
+            ntt_in = rns.decompose(ntt_in,N);
+            // print<<<1,1>>>(ntt_in);
+            // for(int i = 0; i < decomposeSize; i++){
+            //     print_d<<<1,1>>>(ntt_in,1967 + i * N);
+            // }
+            // ntt_in = rns.compose(ntt_in,N);
+            // cudaDeviceSynchronize();
+            // exit(1);
+            // ntt_in = rns.decompose(ntt_in,N);
+
+            // for(int i = 0; i < decomposeSize; i++){
+            //     print_d<<<1,1>>>(ntt_in,1967 + i * N);
+            // }
+// zerocnt<<<1,1>>>(ntt_in,N*decomposeSize);
+            for(int i = 0; i < decomposeSize; i++){
+                forwardNTT(ntt_in+N * i,N,ntt,q,mu,q_bit,psiTable);
+            }
             return ntt_in;
         }
         double* decode(unsigned long long* encodeVec){
@@ -215,15 +240,26 @@ class Encoder{
             Check(cudaMalloc((void**)&ntt_in, N * sizeof(unsigned long long)));
             Check(cudaMalloc((void**)&fft_in, N * sizeof(cuDoubleComplex)));
             Check(cudaMalloc((void**)&fft_out, N * sizeof(cuDoubleComplex)));
+            // eqcnt<<<1,1>>>(encodeVec,N*decomposeSize);
 
-
-            inverseNTT(encodeVec,N,ntt,q,mu,q_bit,psiinvTable);
+            for(int i = 0; i < decomposeSize; i++){
+                // printf("%p\n",encodeVec + N * i);
+                inverseNTT(encodeVec + N * i,N,ntt,q,mu,q_bit,psiinvTable);
+            }
             // print<<<1,1>>>(encodeVec);
-            deltainv<<<N/1024,1024>>>(encodeVec,fft_out,scale,q);
+            // zerocnt<<<1,1>>>(encodeVec,N*decomposeSize);
+            // for(int i = 0; i < decomposeSize; i++){
+            //     print_d<<<1,1>>>(encodeVec,1967 + i * N);
+            // }
+            // print<<<1,1>>>(encodeVec);
+            ntt_in = rns.compose(encodeVec,N);
+            print<<<1,1>>>(ntt_in);
+            // for(int i = 0; i < 16; i++)print_d<<<1,1>>>(ntt_in,i * (N/16));
+            deltainv<<<N/1024,1024>>>(ntt_in,fft_out,scale,q);
 
             cuDoubleComplex a, b;
             a.x = 1;a.y = 0;b.x = 0;b.y = 0;
-            // print<<<1,1>>>(fft_out);
+
             for(int i = 0; i < N; i++){
                 cublasZgemv (
                     handleinv,    // blas 库对象
@@ -240,11 +276,12 @@ class Encoder{
                     1    // ldc
                 );
             }
+            
             Check(cudaMemcpy(host_in, fft_in, n * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost));
             double *res;
             res = (double *)malloc(n * sizeof(double));
             for(int i = 0; i < n ; i++){
-                res[i] = host_in[i].x / N;
+                res[i] = host_in[i].x ;
             }
             return res;
             // return encodeVec;

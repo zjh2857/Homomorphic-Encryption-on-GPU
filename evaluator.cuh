@@ -43,7 +43,10 @@ class Evaluator{
 
     }
     void mulPlain(unsigned long long* plain1, unsigned long long* plain2){
-        polymul<<<N/1024,1024>>>(plain1,plain2,plain1,q,mu,q_bit);
+        // print<<<1,1>>>(plain1+2 * N + (8448 - 8190));
+        polymul<<<N * 8 /1024,1024>>>(plain1,plain2,plain1,q,mu,q_bit);
+        // print<<<1,1>>>(plain1+2 * N + (8448 - 8190));
+        
         // polymul<<<N/1024,1024>>>(cipter.b,plain,cipter.b,q,mu,q_bit);
     }
     void mulcipter(cipherText cipter1, cipherText cipter2,triplePoly& res){

@@ -234,6 +234,8 @@ __global__ void GSBasedINTTInner(unsigned long long a[], unsigned long long q, u
     register int psi_step = global_tid / step;
     register int target_index = psi_step * step * 2 + global_tid % step;
 
+    
+    
     register unsigned long long psiinv = psiinv_powers[length + psi_step];
 
     register unsigned long long first_target_value = a[target_index];
