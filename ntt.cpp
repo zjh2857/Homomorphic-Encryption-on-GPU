@@ -48,15 +48,18 @@ void ntt(int *a, bool tp)
 }
 signed main() {
 	int n = 4, m = 4;
-	for(int i = 0; i <= n; i++) a[i] = 0;
-	for(int i = 0; i <= m; i++) b[i] = 0;
-    b[3] = 1;
-    a[2] = 1;
+	for(int i = 0; i <= n; i++) a[i] = i;
+	for(int i = 0; i <= m; i++) b[i] = 2 * i;
+    // b[3] = 1;
+    // a[2] = 1;
 	while(lim < 4) lim <<= 1, l++;
 	for(int i = 0; i < lim; i++)
 	r[i] = (r[i >> 1] >> 1) | ((i & 1) << (l - 1));
 	ntt(a, 1), ntt(b, 1);
-	for(int i = 0; i < lim; i++) a[i] = ((ll)a[i] * b[i]) % mod;
+	for(int i = 0; i < lim; i++){
+		printf("%llu,%llu\n",a[i],b[i]);
+	}
+	for(int i = 0; i < lim; i++) a[i] = ((ll)a[i] + b[i]) % mod;
 	ntt(a, 0);
 	int niyuan = ksm(lim, mod-2);
 	for(int i = 0;i <= 4; i++)

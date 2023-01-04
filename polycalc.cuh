@@ -96,3 +96,35 @@ __global__ void polymulminus(unsigned long long a[], unsigned long long b[], uns
     d[i] = (rc.low + q - c[i])%q;
 
 }
+
+__global__ void cudaRescale(unsigned long long *a, unsigned long long *b,unsigned long long q,unsigned long long mu,unsigned long long qbit,unsigned long long qinv){
+    register int i = blockIdx.x * blockDim.x + threadIdx.x;
+    register unsigned long long remainder = b[i];
+    register unsigned long long ra = (a[i] + q - remainder) % q;
+    register unsigned long long rb = qinv;
+    // register unsigned long long rc = qinv;
+    // if(i == 0){
+    //     printf("%lld\n",remainder);
+    // }
+    uint128_t rc, rx;
+
+    mul64(ra, rb, rc);
+
+    rx = rc >> (qbit - 2);
+
+    mul64(rx.low, mu, rx);
+
+    uint128_t::shiftr(rx, qbit + 2);
+
+    mul64(rx.low, q, rx);
+
+    sub128(rc, rx);
+
+    if (rc.low < q)
+        a[i] = rc.low;
+    else
+        a[i] = rc.low - q;
+    if(i == 0){
+        printf("%lld,%llu\n",remainder,a[i]);
+    }
+}

@@ -2,7 +2,7 @@
 #include "uint128.cuh"
 #include <stdlib.h>
 
-__device__ unsigned long long modpow128(unsigned long long a, unsigned long long b, unsigned long long mod)
+__device__ __host__ unsigned long long modpow128(unsigned long long a, unsigned long long b, unsigned long long mod)
 {
     unsigned long long res = 1;
 

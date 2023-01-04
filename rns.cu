@@ -262,7 +262,7 @@ class RNS{
         for(int i = 0; i < N; i++){
             cudaMemcpy(Ni+(N*i),Ni_h[i],N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
         }
-        print<<<1,1>>>(Ni);
+        // print<<<1,1>>>(Ni);
         // exit(1);
     }
     unsigned long long* decompose(unsigned long long *list,int listLen){
@@ -276,7 +276,7 @@ class RNS{
     unsigned long long* compose(unsigned long long * decomposeList, int listLen){
         unsigned long long * composeList;
         cudaMalloc(&composeList, listLen * N * sizeof(unsigned long long));
-        print<<<1,1>>>(Ni);
+        // print<<<1,1>>>(Ni);
         cudacompose<<<listLen/1024,1024>>>(decomposeList,moduleChain,listLen,N,Ni,bigN,composeList,buff1,buff2);
         return composeList;        
     }

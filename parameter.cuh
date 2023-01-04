@@ -130,3 +130,25 @@ void getParams30(unsigned& q, unsigned& psi, unsigned& psiinv, unsigned& ninv, u
     }
 }
 // void getParms60(unsigned& q, unsigned& psi, unsigned& psiinv, unsigned& ninv, unsigned& q_bit, unsigned n)
+void getParams(unsigned long long *q, unsigned long long* psi,unsigned long long* psiinv, unsigned long long* q_bit,int polylen){
+    unsigned long long q_t[8] = {1179649, 1376257, 1769473, 2424833, 2752513, 3604481, 3735553, 5308417};
+    unsigned long long psi_t[8] = {1034474, 1172569, 1557013, 349058, 785782, 1977521, 627147, 4561077};
+    unsigned long long psiinv_t[8] = {441827, 1160428, 233173, 928390, 2113364, 499635, 1712567, 3973130};
+    unsigned long long q_bit_t[8] = {21, 21, 21, 22, 22, 22, 22, 23};
+    if(polylen == 4096){
+
+        for(int i = 0; i < 8; i++){
+            q[i] = q_t[i];
+            psi[i] = psi_t[i];
+            psiinv[i] = psiinv_t[i];
+            q_bit[i] = q_bit_t[i];
+        }
+        // q[0] = 288230376135196673;
+        // psi[0] = 60193018759093;
+        // psiinv[0] = 236271020333049746;
+        // // ninv[0] = 288160007391023041;
+        // q_bit[0] = 58;
+    }else{
+        throw "wrong polylen";
+    }
+}

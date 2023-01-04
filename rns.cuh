@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <stdlib.h>
-
+#include "helper.cuh"
 using namespace std;
 
 struct uint128{
@@ -12,7 +12,7 @@ struct uint128{
 //         printf("%llu\t",a[i]);
 //     }printf("\n");
 // }
-
+__constant__ double half_d;
 __device__ __host__ __forceinline__ void bigMul(unsigned long long a,unsigned long long b, uint128& res){
     u_int64_t a0 = a & 0xffffffff;
     u_int64_t a1 = a >> 32;
@@ -38,10 +38,9 @@ __device__ __host__ __forceinline__ void bigMul(unsigned long long a,unsigned lo
 __device__ __host__ __forceinline__ void bigIntegerMul(unsigned long long * a, unsigned long long b,int size){
     uint128 temp; 
     bigMul(a[0],b,temp);
-    // printf("%llu,%llu\n",temp.low,temp.high);
     unsigned long long carry = temp.high;
     a[0] = temp.low;
-    // printf("%llu,%llu\n",a[0],temp.low);
+
     for(int i = 1; i < size; i++){
         if(!a[i] && !carry){
             break;
@@ -61,34 +60,7 @@ __device__ __host__ __forceinline__ void bigIntegerMul(unsigned long long * a, u
         }
     }
 }
-// __device__ __host__ __forceinline__ void bigIntegerMul_d(unsigned long long * a, unsigned long long b,int size){
-//     uint128 temp;
-//     bigMul(a[0],b,temp);
-    
-//     // printf("%llu,%llu,%llu,%llu\n",a[0],b,temp.low,temp.high);
-//     unsigned long long carry = temp.high;
-//     // printf("%llu,%llu\t",a[0],temp.low);
-//     a[0] = temp.low;
-//     // printf("%llu,%llu\n",a[0],temp.low);
-//     for(int i = 1; i < size; i++){
-//         if(!a[i] && !carry){
-//             break;
-//         }
-//         uint128 temp;
-//         bigMul(a[i],b,temp);
-//         // temp = te
-//         a[i] = temp.low;
-//         // a[i] = (temp & 0xffffffffffffffff);
-//         if(a[i] + carry < a[i]){
-//             a[i] += carry;
-//             carry = 1 + temp.high;
-//         }
-//         else{
-//             a[i] += carry;
-//             carry = temp.high;
-//         }
-//     }
-// }
+
 __device__ __host__ __forceinline__ void bigIntegerAdd(unsigned long long * a, unsigned long long *b,int size){
     unsigned long long carry = 0;
     for(int i = 0; i < size; i++){
@@ -111,13 +83,6 @@ __device__ __host__ __forceinline__ int isneg(unsigned long long * a, unsigned l
     }
 
     bigIntegerMul(temp,p,size);
-    // {for(int i = 0; i < size; i++){
-    //     printf("%llu\t",temp[i]);
-    // }printf("\n");}
-    // {for(int i = 0; i < size; i++){
-    //     printf("%llu\t",a[i]);
-    // }printf("\n");}
-    int res = 0;
     unsigned long long borrow = 0;
     for(int i = 0; i < size; i++){
         // if(p == 1742){
@@ -138,43 +103,14 @@ __device__ __host__ __forceinline__ int isneg(unsigned long long * a, unsigned l
         }
         
     }
-    // printf("^^%d\n",borrow);
-    // for(int i = 0; i < size; i++){
-    //     printf("%llu\t",temp[i]);
-    // }printf("\n\n\n\n");
     if(borrow == 1){
         return -1;
     }
     return 1;
-    // for(int i = size-1; i > 0; i--){
-    //     if(temp[i] !=0 ){
-    //         return 1;
-    //     }
-    // }
-    // return 0;
-    // for(int i = 0; i < size; i++){
-    //     if(a[i] < borrow){
-    //         return -1;
-    //     }
-    //     if(a[i] - borrow > temp1[i]){
-    //         borrow = 0;
-    //     }else{
-    //         borrow = 1;
-    //     }
-    //     // if(a[i] > temp[i]){
-    //     //     // free(temp);
-    //     //     return 1;
-    //     // }
-    //     // else if(a[i] < temp[i]){
-    //     //     // free(temp);
-    //     //     return -1;
-    //     // }
-    // }
-    // free(temp);
-    return 0;
 }
 
-__device__ __host__ __forceinline__ int isneg_d(unsigned long long * a, unsigned long long *b ,unsigned long long p,int size){
+
+__device__ __host__ __forceinline__ double bigInteger2udouble(unsigned long long *a,unsigned long long *b,unsigned long long p,int size,int tid){
     // unsigned long long* temp = (unsigned long long*)malloc(size * sizeof(unsigned long long)); 
     unsigned long long temp[64];
     for(int i = 0; i < size; i++){
@@ -182,18 +118,10 @@ __device__ __host__ __forceinline__ int isneg_d(unsigned long long * a, unsigned
     }
 
     bigIntegerMul(temp,p,size);
-    {for(int i = 0; i < size; i++){
-        printf("%llu\t",temp[i]);
-    }printf("\n");}
-    {for(int i = 0; i < size; i++){
-        printf("%llu\t",a[i]);
-    }printf("\n");}
-    int res = 0;
+
     unsigned long long borrow = 0;
     for(int i = 0; i < size; i++){
-        // if(p == 1742){
-        //     printf("&&%d,%llu\n",i,borrow);
-        // }
+
         if(a[i] < borrow){
             borrow = 1;
             temp[i] = a[i] - borrow - temp[i];
@@ -209,153 +137,110 @@ __device__ __host__ __forceinline__ int isneg_d(unsigned long long * a, unsigned
         }
         
     }
-    printf("^^%d\n",borrow);
-    for(int i = 0; i < size; i++){
-        printf("%llu\t",temp[i]);
-    }printf("\n\n\n\n");
-    if(borrow == 1){
-        return -1;
-    }
-    return 1;
-    // for(int i = size-1; i > 0; i--){
-    //     if(temp[i] !=0 ){
-    //         return 1;
-    //     }
-    // }
-    // return 0;
-}
-__device__ __host__ __forceinline__ unsigned long long bigInteger2u64(unsigned long long *a,unsigned long long *b,unsigned long long p,int size,int tid){
-    // unsigned long long* temp = (unsigned long long*)malloc(size * sizeof(unsigned long long)); 
-    unsigned long long temp[64];
-    for(int i = 0; i < size; i++){
-        temp[i] = b[i];
+
+    if(tid==0){
+        for(int i = 0; i < size; i++){
+            printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
+        }printf("\n");
+        // printf("%lf,%lf\n",res_n,res_p);
     }
 
-    bigIntegerMul(temp,p,size);
-    // {for(int i = 0; i < size; i++){
-    //     printf("%llu\t",temp[i]);
-    // }printf("\n");}
-    // {for(int i = 0; i < size; i++){
-    //     printf("%llu\t",a[i]);
-    // }printf("\n");}
-    // int res = 0;
-    unsigned long long borrow = 0;
-    for(int i = 0; i < size; i++){
-        // if(p == 1742){
-        //     printf("&&%d,%llu\n",i,borrow);
-        // }
-        if(a[i] < borrow){
-            borrow = 1;
-            temp[i] = a[i] - borrow - temp[i];
-            continue;
-        }
-
-        if(a[i] - borrow >= temp[i]){
-            temp[i] = a[i] - borrow - temp[i];
-            borrow = 0;
-        }else{
-            temp[i] = a[i] - borrow - temp[i];
-            borrow = 1;
-        }
-        
-    }
-    // printf("^^%d\n",borrow);
-    // for(int i = 0; i < size; i++){
-    //     printf("%llu\t",temp[i]);
-    // }printf("\n\n\n\n");
+    double res_p = 0;
     double res = 0;
+    double res_n = 0;
     double twopow64 = 18446744073709551616.0;
     double base = 1.0;
+    // if(tid==0){
+    //     for(int i = 0; i < size; i++){
+    //         printf("%llu!\t",temp[i]);
+    //     }printf("\n");
+    //     // printf("%lf,%lf\n",res_n,res_p);
+    // }
+    for(int i = 0; i < size; i++){
+        res_p += temp[i] * base;
+        base*= twopow64;
+    }
+    for(int i = 0; i < size; i++){
+        temp[i] = b[i];
+    }
+
+    bigIntegerMul(temp,p+1,size);
+    borrow = 0;
+    for(int i = 0; i < size; i++){
+
+        if(a[i] < borrow){
+            borrow = 1;
+            temp[i] = a[i] - borrow - temp[i];
+            continue;
+        }
+
+        if(a[i] - borrow >= temp[i]){
+            temp[i] = a[i] - borrow - temp[i];
+            borrow = 0;
+        }else{
+            temp[i] = a[i] - borrow - temp[i];
+            borrow = 1;
+        }
+        
+    }
+    for(int i = 0; i < size; i++){
+        temp[i] = ~temp[i];
+    }
+    unsigned long long carry = 1;
+    for(int i = 0; i < size; i++){
+        temp[i] += carry;
+        if(temp[i] == 0 && carry){
+            carry = 1;
+        }else{
+            carry = 0;
+        }
+    }
+    base = 1.0;
     if(tid==0){
         for(int i = 0; i < size; i++){
-            printf("@%llu\t",temp[i]);
+            printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
         }printf("\n");
+        // printf("%lf,%lf\n",res_n,res_p);
     }
-    if(borrow == 0){
-        for(int i = 0; i < size; i++){
-            res += temp[i] * base;
-            base*= 18446744073709551616.0;
-        }
+    for(int i = 0; i < size; i++){
+        res_n += temp[i] * base;
+        base*= twopow64;
+    }
+
+
+    if(res_n < res_p){
+        res = -res_n;
     }
     else{
-
-        for(int i = 0; i < size; i++){
-            temp[i] = ~temp[i];
-        }
-        unsigned long long carry = 1;
-        for(int i = 0; i < size; i++){
-            temp[i] += carry;
-            if(temp[i] == 0){
-                carry = 1;
-            }else{
-                carry = 0;
-            }
-        }
-    if(tid==0){
-        for(int i = 0; i < size; i++){
-            printf("@%llu\t",temp[i]);
-        }printf("\n");
-    }        
-        for(int i = 0; i < size; i++){
-            res += temp[i] * base;
-            base*= 18446744073709551616.0;
-        }
-        res = -res;
+        res = res_p;
     }
-    // printf("!!!$$\n");
-    if(tid == 0){printf("^^^%lf\n",res);
-    if(tid == 0)printf("fff%lf\n",res - (unsigned long long)(res / 288230376135196673) * 288230376135196673.0);
-    unsigned long long r = res - (unsigned long long)(res / 288230376135196673) * 288230376135196673.0;
-    printf("uuu%llu\n",r);}
-    return res - (unsigned long long)(res / 288230376135196673) * 288230376135196673.0;
-    // return 0;
+
+    return res;
 }
-__device__ __host__ __forceinline__ unsigned long long bigIntegerMod(unsigned long long * a, unsigned long long *b,int size,int tid){
+__device__ __host__ __forceinline__ double bigIntegerMod(unsigned long long * a, unsigned long long *b,int size,int tid){
     unsigned long long l = 0;
     unsigned long long r = (1llu << 63);
     unsigned long long guess;
-    // printf("%d((((\n",tid);
-    // if(a[0] != 0){
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",a[i]);
-    //     }printf("\n");
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",b[i]);
-    //     }printf("\n");
-    // }else{
-    //     return 0;
-    // }
-    // return 0;
-    if(tid == 0){
-        for(int i = 0; i < 8; i++){
-            printf("%llu\t",a[i]);
-        }printf("\n");
-        for(int i = 0; i < 8; i++){
-            printf("%llu\t",b[i]);
-        }printf("\n");            
-    }
+
+
     int cnt = 0;
     unsigned long long p = 0;
+    // if(tid==0){
+    //     for(int i = 0; i < 8;i++){
+    //         printf("%llu\t",a[i]);
+    //     }printf("\n");
+    //     for(int i = 0; i < 8;i++){
+    //         printf("%llu\t",b[i]);
+    //     }printf("\n");
+    // }
     while(l < r){
-
         if(cnt++ > 100){
-            // printf("==============\n");
-        //     for(int i = 0; i < 8; i++){
-        //         printf("%llu\t",a[i]);
-        //     }printf("\n");
-        //     for(int i = 0; i < 8; i++){
-        //         printf("%llu\t",b[i]);
-        //     }printf("\n");            
-        //     printf("==============\n");
-        // printf("%llu,%llu\n",l,r);
-            // printf("%d\n",tid);
             printf("114514\n");
             return 114514;
         }
-        if(tid == 0)printf("%llu,%llu,%llu\n",l,r,(l+r)/2);
         unsigned long long guess = (l + r)/2;
-        // if(guess == 0){
-        //     return 0;
+        // if(tid == 114514){
+        //     printf("%llu,%llu,%llu\n",l,r,(l+r)/2);
         // }
         int res = isneg(a,b,guess,size);
         if(res == 1){
@@ -366,76 +251,50 @@ __device__ __host__ __forceinline__ unsigned long long bigIntegerMod(unsigned lo
         else if(res == -1){
             r = guess;
         }
-        // else{
-        //     return a[0] - (b[0] * guess);
-        // }
     }
-    // if(l != r){
-    //     printf("@@@@@@@@@\n");
-    //     return 114514;
+    // if(tid == 0){
+    //     printf("%llu!!\n",p);
     // }
-    if(tid == 0)printf("%llu&&&&&&&&&&&&&&&\n",p);
-    return bigInteger2u64(a,b,p,size,tid);
+    return bigInteger2udouble(a,b,p,size,tid);
 
 }
 
 
-// __device__ __host__ __forceinline__ unsigned long long bigIntegerMod_d(unsigned long long * a, unsigned long long *b,int size){
-//     unsigned long long l = 0;
-//     unsigned long long r = (1llu << 63);
-//     unsigned long long guess;
-//     // if(a[0] != 0){
-//     //     for(int i = 0; i < 8; i++){
-//     //         printf("%llu\t",a[i]);
-//     //     }printf("\n");
-//     //     for(int i = 0; i < 8; i++){
-//     //         printf("%llu\t",b[i]);
-//     //     }printf("\n");
-//     // }else{
-//     //     return 0;
-//     // }
-//     // return 0;
-//     int cnt = 0;
-//     while(l <= r){
-//         if(cnt++ > 100){
-//             return 114514;
-//         }
-//         printf("%llu,%llu,%llu\n",l,r,(l+r)/2);
+__global__ void cudadecompose(cuDoubleComplex *list,unsigned long long* moduleChain,int listLen,int moduleLen,unsigned long long * decomposeList,unsigned long long scale){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    if(list[tid].x < 0){
+        unsigned long long temp = -list[tid].x / listLen *scale;
+        for(int i = 0; i < moduleLen; i++){
+            decomposeList[i * listLen + tid] =moduleChain[i] - (temp % moduleChain[i]);
+        }        
+    }
+    else{
+        unsigned long long temp = list[tid].x / listLen *scale;
+        for(int i = 0; i < moduleLen; i++){
+            decomposeList[i * listLen + tid] = (temp) % moduleChain[i];
+        }
+    }
+}
 
-//         // printf("%llu,%llu\n",l,r);
-//         unsigned long long guess = (l + r)/2;
-//         int res = isneg_d(a,b,guess,size);
-//         if(res == 1){
-//             l = guess + 1;
-//         }
-//         else if(res == -1){
-//             r = guess;
-//         }
-//         else{
-//             return a[0] - (b[0] * guess);
-//         }
-//     }
-//     return 0;
-// }
 __global__ void cudadecompose(unsigned long long *list,unsigned long long* moduleChain,int listLen,int moduleLen,unsigned long long * decomposeList){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned long long temp = list[tid];
     for(int i = 0; i < moduleLen; i++){
-        decomposeList[i * listLen + tid] = list[tid] % moduleChain[i];
+        decomposeList[i * listLen + tid] = temp % moduleChain[i];
+        // if(tid == 0){
+        //     printf("%llu,%llu,%llu\n",list[tid],moduleChain[i],decomposeList[i * listLen + tid]);
+        // }
     }
-    // if(tid == 1){
-    //     printf("**%llu\n",list[1]);
-    // }
 }
+
 __global__ void cudacompose(unsigned long long *decomposeList,
                             unsigned long long* moduleChain,
                             int listLen,
                             int moduleLen,
                             unsigned long long* Ni,
-                            unsigned long long *bigN,unsigned long long * composeList,unsigned long long* temp1,unsigned long long* temp2){
+                            unsigned long long *bigN,cuDoubleComplex * composeList,unsigned long long* temp1,unsigned long long* temp2,unsigned long long scale){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    // unsigned long long temp1[64];
-    // unsigned long long temp2[64];'
-    // printf("!!!!%d\n",tid);
+
     for(int i = 0; i < moduleLen; i++){
         temp2[tid * moduleLen + i] = 0;
     }
@@ -444,82 +303,42 @@ __global__ void cudacompose(unsigned long long *decomposeList,
             temp1[tid * moduleLen + j] = Ni[i * moduleLen + j];
         }
         
-    // if(i==0)printf("%llu,%llu\n",decomposeList[i * listLen + tid],temp1[tid * moduleLen]);
-        // if(tid == 1967){
-        //     // printf("%llu,%llu,%llu\n",decomposeList[i * listLen + tid],moduleChain[i],decomposeList[i * listLen + tid]%moduleChain[i]);
-        //     for(int i = 0; i < 8; i++){
-        //         printf("%llu\t",temp1[tid * moduleLen + i]);
-        //     }printf("***\n");
-
-        // }
         bigIntegerMul(&(temp1[tid * moduleLen]),decomposeList[i * listLen + tid]%moduleChain[i],moduleLen);
-        // if(i == 0)printf("%llu\n",temp1[tid * moduleLen]);
-        // if(tid == 0){
-        //     for(int i = 0; i < 8; i++){
-        //         printf("%llu\t",temp1[tid * moduleLen + i]);
-        //     }printf("***\n");
-        // if(tid == 1967){
-        //     // printf("%llu,%llu,%llu\n",decomposeList[i * listLen + tid],moduleChain[i],decomposeList[i * listLen + tid]%moduleChain[i]);
-        //     for(int i = 0; i < 8; i++){
-        //         printf("%llu\t",temp1[tid * moduleLen + i]);
-        //     }printf("***\n");
-
-        // }
-        // }
         bigIntegerAdd(&temp2[tid * moduleLen],&temp1[tid * moduleLen],moduleLen);
     }
-    // if(tid == 114){
-    //     printf("%llu\n",decomposeList[i * listLen + tid]);
-    //     // printf("%llu\t",Ni[0]);
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",temp1[i]);
-    //     }printf("\n");
-    //     // for(int i = 0; i < 8; i++){
-    //     //     printf("%llu\t",bigN[i]);
-    //     // }printf("\n");
-    // }
-    // }
-    // if(tid == 514){
-    //     // printf("%llu\t",Ni[0]);
-    //     // printf("%p\n",temp1);
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",temp2[tid * moduleLen + i]);
-    //     }printf("\n");
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",bigN[i]);
-    //     }printf("\n");
-    // }
-    // if(tid == 1967){
-    //     // for(int i = 0; i < 8; i++){
-    //     //     printf("%llu\t",temp2[tid * moduleLen + i]);
-    //     // }printf("!!!!!!\n");
-    //     for(int i = 0; i < 8; i++){
-    //         printf("%llu\t",bigN[i]);
-    //     }printf("!!!!!!\n");
-    // }
-    unsigned long long res;
-    // if(temp2[tid * moduleLen] == 0 && tid == 3488){
-    //     printf("%d\n",tid);
-    //     for(int i = 0; i < 8; i++){
-    //         printf("(((%llu\t",decomposeList[i * listLen + tid]);
-    //     }printf("\n");
-    // }
-
-    res = bigIntegerMod(&temp2[tid * moduleLen],bigN,moduleLen,tid);
-    // if(res == 114514){
-    //     printf("###%d\n",tid);
-    //     // for(int i = 0; i < 8; i++){
-    //     //     printf("%llu\t",temp2[tid * moduleLen + i]);
-    //     // }printf("!!!!!!\n");
-    //     // for(int i = 0; i < 8; i++){
-    //     //     printf("%llu\t",bigN[tid * moduleLen + i]);
-    //     // }printf("!!!!!!\n");
-    // }
-    // if(tid == 0){
-    //     printf("@@@@%llu\n",res);
-    // }
-    // printf("%llu\n",res);
+    cuDoubleComplex res;
+    res.x = bigIntegerMod(&temp2[tid * moduleLen],bigN,moduleLen,tid);
+    res.y = 0;
     composeList[tid] = res;
+}
+__global__ void cudacompose(unsigned long long *decomposeList,
+                            unsigned long long* moduleChain,
+                            int listLen,
+                            int moduleLen,
+                            unsigned long long* Ni,
+                            unsigned long long *bigN,cuDoubleComplex * composeList,unsigned long long* temp1,unsigned long long* temp2,unsigned long long scale,int rescaleTimes){
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+    for(int i = 0; i < moduleLen; i++){
+        temp2[tid * moduleLen + i] = 0;
+    }
+    for(int i = rescaleTimes; i < moduleLen; i++){
+        for(int j = 0; j < moduleLen; j++){
+            temp1[tid * moduleLen + j] = Ni[i * moduleLen + j];
+        }
+        // if(tid == 0){
+        //     for(int j = 0; j < moduleLen; j++){
+        //         printf("##%llu\n",temp1[tid * moduleLen + j]);
+        //     }
+        // }
+        bigIntegerMul(&(temp1[tid * moduleLen]),decomposeList[i * listLen + tid]%moduleChain[i],moduleLen);
+        bigIntegerAdd(&temp2[tid * moduleLen],&temp1[tid * moduleLen],moduleLen);
+    }
+    cuDoubleComplex res;
+    res.x = bigIntegerMod(&temp2[tid * moduleLen],bigN,moduleLen,tid);
+    res.y = 0;
+    composeList[tid] = res;
+    
 }
 
 
@@ -531,17 +350,24 @@ class RNS{
     unsigned long long *bigN;
     unsigned long long *buff1;
     unsigned long long *buff2;
+    unsigned long long* moduleChain_h;
+    unsigned long long scale;
     unsigned long long step = 2;
     RNS(int N,unsigned long long scale){
         this->N = N;
+        this->scale = scale;
         buff1 = nullptr;
         buff2 = nullptr;
-        unsigned long long* moduleChain_h = (unsigned long long*)malloc(N * sizeof(unsigned long long));
-        genPrime(moduleChain_h,scale,N);
-        // moduleChain_h[N-1] = 288230376135196673;
-        // for(int i = 0; i < N; i++){
-        //     printf("%llu\t",moduleChain_h[i]);
-        // }printf("\n");
+        moduleChain_h = (unsigned long long*)malloc(N * sizeof(unsigned long long));
+        unsigned long long temp[8] = {1179649, 1376257, 1769473, 2424833, 2752513, 3604481, 3735553, 5308417};
+        double half_h = 1.0;
+        for(int i = 0; i < N; i++){
+            moduleChain_h[i] = temp[i];
+            half_h *= temp[i];
+        }
+        half_h /= 2.0;
+        // cudaMemcpyToSymbol(&half_d, &half_h, sizeof(double));
+        // genPrime(moduleChain_h,scale,N);
         unsigned long long** Ni_h = (unsigned long long**)calloc(N,sizeof(unsigned long long**));
         for(int i = 0; i < N;i++){
             Ni_h[i] = (unsigned long long*)calloc(N,sizeof(unsigned long long));
@@ -558,7 +384,7 @@ class RNS{
             for(int j = 0; j < N; j++){
                 if(i==j)continue;
                 bigIntegerMul(Ni_h[i],moduleChain_h[j],N);
-                ti_h[i] = ti_h[i] * qpow(moduleChain_h[j],moduleChain_h[i]-2,moduleChain_h[i]) % moduleChain_h[i];
+                ti_h[i] = ti_h[i] * modpow128(moduleChain_h[j],moduleChain_h[i]-2,moduleChain_h[i]) % moduleChain_h[i];
             }
         }
         
@@ -576,47 +402,109 @@ class RNS{
 
         cudaMemcpy(moduleChain,moduleChain_h,N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
         cudaMemcpy(bigN,bigN_h,N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
-        // for(int i = 0; i < N; i++){
-        //     for(int j = 0; j < N;j++){
-        //         printf("%llu\t",Ni_h[i][j]);
-        //     }
-        //     printf("\n");
-        // }
-        // exit(1);
+
         for(int i = 0; i < N; i++){
             cudaMemcpy(Ni+(N*i),Ni_h[i],N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
         }
-        // print<<<1,1>>>(Ni);
-        // exit(1);
     }
+    unsigned long long* decompose(cuDoubleComplex *list,int listLen){
+        unsigned long long * decomposeList;
+        cudaMalloc(&decomposeList, listLen * N * sizeof(unsigned long long));
+        cudadecompose<<<listLen/1024,1024>>>(list,moduleChain,listLen,N,decomposeList,scale);
+        return decomposeList;
+    }
+
     unsigned long long* decompose(unsigned long long *list,int listLen){
         unsigned long long * decomposeList;
         cudaMalloc(&decomposeList, listLen * N * sizeof(unsigned long long));
         cudadecompose<<<listLen/1024,1024>>>(list,moduleChain,listLen,N,decomposeList);
         return decomposeList;
     }
-    unsigned long long* compose(unsigned long long * decomposeList, int listLen){
-        unsigned long long * composeList;
-        cudaMalloc(&composeList, listLen * N * sizeof(unsigned long long));
+    cuDoubleComplex* compose(unsigned long long * decomposeList, int listLen){
+        cuDoubleComplex * composeList;
+        cudaMalloc(&composeList, listLen * N * sizeof(cuDoubleComplex));
 
         if(!buff1)cudaMalloc(&buff1, listLen * N * sizeof(unsigned long long));
         if(!buff2)cudaMalloc(&buff2, listLen * N * sizeof(unsigned long long));
-        // print<<<1,1>>>(decomposeList);
 
-        // cudaDeviceSynchronize();
-        printf("##%d\n",listLen);
-        cudacompose<<<listLen/1024,1024>>>(decomposeList,moduleChain,listLen,N,Ni,bigN,composeList,buff1,buff2);
-        // cudaDeviceSynchronize();
-
-cudaError_t err = cudaGetLastError();
-
-    if (err != cudaSuccess) {
-    printf("CUDA Error: %s\n", cudaGetErrorString(err));
-    // Possibly: exit(-1) if program cannot continue....
-}
-        // print<<<1,1>>>(composeList);
-cudaDeviceSynchronize();
+        cudacompose<<<listLen/1024,1024>>>(decomposeList,moduleChain,listLen,N,Ni,bigN,composeList,buff1,buff2,scale);
         return composeList;        
+    }
+    cuDoubleComplex* compose(unsigned long long * decomposeList, int listLen,int rescaleTimes){
+        cuDoubleComplex * composeList;
+        cudaMalloc(&composeList, listLen * N * sizeof(cuDoubleComplex));
+
+        if(!buff1)cudaMalloc(&buff1, listLen * N * sizeof(unsigned long long));
+        if(!buff2)cudaMalloc(&buff2, listLen * N * sizeof(unsigned long long));
+
+
+        unsigned long long** Ni_h = (unsigned long long**)calloc(N,sizeof(unsigned long long**));
+        for(int i = 0; i < N;i++){
+            Ni_h[i] = (unsigned long long*)calloc(N,sizeof(unsigned long long));
+        }
+        // unsigned long long bigN[N];
+        unsigned long long *bigN_h = (unsigned long long*)calloc(N,sizeof(unsigned long long));
+        unsigned long long *ti_h = (unsigned long long*)calloc(N,sizeof(unsigned long long));
+        bigN_h[0] = 1;
+        for(int i = 0;i < N; i++){
+            Ni_h[i][0] = 1;
+            ti_h[i] = 1;
+        }
+        for(int i = rescaleTimes; i < N; i++){
+            for(int j = rescaleTimes; j < N; j++){
+                if(i==j)continue;
+                bigIntegerMul(Ni_h[i],moduleChain_h[j],N);
+                ti_h[i] = ti_h[i] * modpow128(moduleChain_h[j],moduleChain_h[i]-2,moduleChain_h[i]) % moduleChain_h[i];
+            }
+        }
+        
+        for(int i = rescaleTimes; i < N; i++){
+            bigIntegerMul(bigN_h,moduleChain_h[i],N);
+        }
+        for(int i = rescaleTimes; i < N; i++){
+            bigIntegerMul(Ni_h[i],ti_h[i],N);
+        }
+        free(ti_h);
+        unsigned long long *moduleChain_r,*Ni_r,*bigN_r;
+        cudaMalloc(&moduleChain_r,N * sizeof(unsigned long long));
+        cudaMalloc(&Ni_r,N * N * sizeof(unsigned long long));
+        cudaMalloc(&bigN_r,N * sizeof(unsigned long long));
+
+        cudaMemcpy(moduleChain_r,moduleChain_h,N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
+        cudaMemcpy(bigN_r,bigN_h,N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
+
+        for(int i = 1; i < N; i++){
+            cudaMemcpy(Ni_r+(N*i),Ni_h[i],N * sizeof(unsigned long long),cudaMemcpyHostToDevice);
+        }
+        cudacompose<<<listLen/1024,1024>>>(decomposeList,moduleChain,listLen,N,Ni_r,bigN_r,composeList,buff1,buff2,scale,rescaleTimes);
+        return composeList;        
+    }
+    // unsigned long long* compose_u(unsigned long long * decomposeList, int listLen){
+    //     unsigned long long* composeList;
+    //     cudaMalloc(&composeList, listLen * N * sizeof(unsigned long long));
+
+    //     if(!buff1)cudaMalloc(&buff1, listLen * N * sizeof(unsigned long long));
+    //     if(!buff2)cudaMalloc(&buff2, listLen * N * sizeof(unsigned long long));
+
+    //     cudacompose<<<listLen/1024,1024>>>(decomposeList,moduleChain,listLen,N,Ni,bigN,composeList,buff1,buff2);
+    //     return composeList;        
+    // }
+    void getParams(unsigned long long *q, unsigned long long* psi,unsigned long long* psiinv, unsigned long long* q_bit,int polylen){
+        //hard
+        unsigned long long psi_t[8] = {1034474, 1172569, 1557013, 349058, 785782, 1977521, 627147, 4561077};
+        unsigned long long psiinv_t[8] = {441827, 1160428, 233173, 928390, 2113364, 499635, 1712567, 3973130};
+        unsigned long long q_bit_t[8] = {21, 21, 21, 22, 22, 22, 22, 23};
+        if(polylen == 4096){
+
+            for(int i = 0; i < 8; i++){
+                q[i] = moduleChain_h[i];
+                psi[i] = psi_t[i];
+                psiinv[i] = psiinv_t[i];
+                q_bit[i] = q_bit_t[i];
+            }
+        }else{
+            throw "wrong polylen";
+        }
     }
     private:
     void genPrime(unsigned long long* moduleChain_h,unsigned long long scale,int N){
@@ -627,8 +515,6 @@ cudaDeviceSynchronize();
         while(cnt < N){
             if(MillerRabin(scale+1)){
                 moduleChain_h[cnt] = scale + 1;
-                // psi[cnt] = GetOrigen(scale+1);
-                // psiinv[cnt] = pow(psi[cnt],scale-1,scale+1);
                 scale += step;
                 cnt++;
             }
@@ -637,23 +523,9 @@ cudaDeviceSynchronize();
             }
         }
     }
-    // void GetOrigen(unsigned long long prime){
-    //     for(unsigned long long p = 2; p < 64){
-            
-    //     }
-        
-    // }
-    unsigned long long qpow(unsigned long long a,unsigned long long b,unsigned long long q){
-        unsigned long long r=1;
-        // unsigned long long base = a;
-        while(b){
-            if(b&1)r = (a * r)%q;
-            a = a * a % q;
-            b >>= 1;
-        }
-        return r;
-    }
+
     bool MillerRabin(unsigned long long n){
+
         if(n == 2){
             return true;
         }
@@ -663,13 +535,12 @@ cudaDeviceSynchronize();
         bool res = true;
         for(unsigned long long a = 2; a < 64 && a < n; a++){
             unsigned long long d = n - 1;
-            // printf("%llu\n",a);
+
             while(d % 2 == 0){
-                // printf("%llu,%llu,%llu\n",a,d,qpow(a,d,n));
-                if(qpow(a,d,n) == 1){
+                if(modpow128(a,d,n) == 1){
                     // continue;
                 }
-                else if(qpow(a,d,n) == n-1){
+                else if(modpow128(a,d,n) == n-1){
                     break;
                 }
                 else{
@@ -715,6 +586,3 @@ void bigMulTest(){
         }
     }
 }
-// int main(){
-//     bigMulTest();
-// }
