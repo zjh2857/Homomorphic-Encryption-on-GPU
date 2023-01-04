@@ -229,7 +229,7 @@ class Encoder{
             //     print_d<<<1,1>>>(encodeVec,i);
             // }
             // fft_out_t = rns.compose(encodeVec,N,1);
-            fft_out = rns.compose(encodeVec,N);
+            fft_out = rns.compose(encodeVec,N,1);
             // print<<<1,1>>>(fft_out);
             // print<<<1,1>>>(fft_out_t);            
             cuDoubleComplex a, b;

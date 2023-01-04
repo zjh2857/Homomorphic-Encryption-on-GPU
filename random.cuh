@@ -1,4 +1,5 @@
 
+__device__ unsigned long long devData = 1;
 __global__ void genRandom(unsigned long long *randomVec,unsigned long long scale){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     // randomVec[tid] = (1) * scale;
@@ -13,7 +14,14 @@ __global__ void genRandom(unsigned long long *randomVec,unsigned long long scale
     //     }
     //     return ;
     // }
-    randomVec[tid] = scale;
+        //     randomVec[tid] = 0;
+        // return ;
+    if(scale < 10){
+        randomVec[tid] = 0;
+        return ;
+    }
+    randomVec[tid] = (devData * 114 + 514) % 3777;
+    devData = randomVec[tid];
     // if(scale == 0){
     //     randomVec[tid] = 0;
     // }
@@ -27,5 +35,7 @@ __global__ void genRandom(unsigned long long *randomVec,unsigned long long scale
 
 __global__ void genRandom_s (unsigned long long *randomVec,unsigned long long scale){
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
+        //     randomVec[tid] = 0;
+        // return ;
     randomVec[tid] = (114 * tid + 514) % 3777;
 }

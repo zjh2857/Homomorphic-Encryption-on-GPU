@@ -31,7 +31,7 @@ int main(){
     // a[0] = 10;
     double b[N];
     for(int i = 0; i < N; i++){
-        b[i] = 2;
+        b[i] = i;
     }
 
     keyGen keygen(N,scale,8);
@@ -61,7 +61,8 @@ int main(){
 
     auto ciptertextc = evaluator.mulcipter(ciptertexta,ciptertextb);
 
-    // auto ciptertextd = evaluator.relien(ciptertextc,keygen.relien);
+    auto ciptertextd = evaluator.relien(ciptertextc,keygen.relien);
+    evaluator.rescale(ciptertextd);
     // print<<<1,1>>>(ciptertextd.a);
     // print<<<1,1>>>(ciptertextd.b);
     // print<<<1,1>>>(ciptertextd.c);
@@ -72,17 +73,17 @@ int main(){
     // // print<<<1,1>>>(ciptertexta.a);
     // // print<<<1,1>>>(ciptertexta.b);    
     // encryptor.decrypt(ciptertextb,keygen.pri);
-    unsigned long long* dec = encryptor.decrypt(ciptertextc,keygen.pri);
-    print<<<1,1>>>(dec);
+    unsigned long long* dec = encryptor.decrypt(ciptertextd,keygen.pri);
+    // print<<<1,1>>>(dec);
     // // print<<<1,1>>>(dec);
     auto plaina = encoder.decode(dec);
-    // auto plaina = encoder.decode(encodeVeca);
+    // auto plaina = encoder.decode(encodeVecd);
     // // // auto plainb =  encoder.decode(encodeVecb);
     // // // print<<<1,1>>>(dec);
     
 
     for(int i = 0; i < 20; i++){
-        printf("%lf\n",plaina[i]/scale);
+        printf("%lf\n",plaina[i] * 1179649 / scale);
     }
     //  auto plainb = encoder.decode(encodeVecb);
     // // // print<<<1,1>>>(dec);

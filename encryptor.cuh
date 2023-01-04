@@ -132,7 +132,7 @@ class keyGen{
         }
 
         // genRandom<<<N/1024,1024>>>(pub_b,rns.moduleChain_h[0]);
-        genRandom<<<N/1024,1024>>>(pub_b,scale);
+        // genRandom<<<N/1024,1024>>>(pub_b,scale);
 
         pub_b = rns.decompose(pub_b,N);
         print<<<1,1>>>(pub_b);
