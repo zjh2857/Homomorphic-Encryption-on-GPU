@@ -77,9 +77,9 @@ class Evaluator{
             inverseNTT(cipher.a + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
             inverseNTT(cipher.b + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
         }
-        for(int i = 0; i < 8 * N; i += N){
-            print_d<<<1,1>>>(cipher.a,i);
-        }
+        // for(int i = 0; i < 8 * N; i += N){
+        //     print_d<<<1,1>>>(cipher.a,i);
+        // }
         // auto res = rns.compose(cipher.a,N);
         // print<<<1,1>>>(res);
 
@@ -90,9 +90,9 @@ class Evaluator{
 
             cudaRescale<<<N/1024,1024>>>(cipher.b + i * N,cipher.b + cipher.depth * N,q[i],mu[i],q_bit[i],qinv);
         }
-        for(int i = 0; i < 8 * N; i += N){
-            print_d<<<1,1>>>(cipher.a,i);
-        }
+        // for(int i = 0; i < 8 * N; i += N){
+        //     print_d<<<1,1>>>(cipher.a,i);
+        // }
         // res = rns.compose(cipher.a,N);
         // print<<<1,1>>>(res);
         for(int i = 0; i < size; i++){
@@ -109,9 +109,9 @@ class Evaluator{
         }
         // auto res = rns.compose(cipher.a,N);
         // print<<<1,1>>>(res);
-        for(int i = 0; i < 8 * N; i += N){
-            print_d<<<1,1>>>(cipher,i);
-        }
+        // for(int i = 0; i < 8 * N; i += N){
+        //     print_d<<<1,1>>>(cipher,i);
+        // }
         for(int i = 1; i < size; i++){
             unsigned long long qinv = modpow128(q[0],q[i]-2,q[i]);
             
@@ -119,9 +119,9 @@ class Evaluator{
 
             // cudaRescale<<<N/1024,1024>>>(cipher + i * N,cipher + 1 * N,q[i],mu[i],q_bit[i],qinv);
         }
-        for(int i = 0; i < 8 * N; i += N){
-            print_d<<<1,1>>>(cipher,i);
-        }
+        // for(int i = 0; i < 8 * N; i += N){
+        //     print_d<<<1,1>>>(cipher,i);
+        // }
 
         for(int i = 0; i < size; i++){
             forwardNTT(cipher+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);

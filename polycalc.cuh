@@ -124,7 +124,4 @@ __global__ void cudaRescale(unsigned long long *a, unsigned long long *b,unsigne
         a[i] = rc.low;
     else
         a[i] = rc.low - q;
-    if(i == 0){
-        printf("%lld,%llu\n",remainder,a[i]);
-    }
 }

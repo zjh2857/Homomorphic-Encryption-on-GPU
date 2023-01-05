@@ -1,1 +1,1 @@
-/usr/bin/g++ CMakeFiles/ckks.dir/ckkstest.cu.o CMakeFiles/ckks.dir/cmake_device_link.o -o ckks  -lcufft -lcublas -lcudadevrt -lcudart_static -lrt -lpthread -ldl  -L"/usr/local/cuda/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda/targets/x86_64-linux/lib"
+/usr/bin/g++ CMakeFiles/ckks.dir/ckkstest.cu.o CMakeFiles/ckks.dir/cmake_device_link.o -o ckks  -lcublas -lcudadevrt -lcudart_static -lrt -lpthread -ldl  -L"/usr/local/cuda/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda/targets/x86_64-linux/lib"

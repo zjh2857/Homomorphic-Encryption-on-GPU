@@ -138,12 +138,12 @@ __device__ __host__ __forceinline__ double bigInteger2udouble(unsigned long long
         
     }
 
-    if(tid==0){
-        for(int i = 0; i < size; i++){
-            printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
-        }printf("\n");
-        // printf("%lf,%lf\n",res_n,res_p);
-    }
+    // if(tid==0){
+    //     for(int i = 0; i < size; i++){
+    //         printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
+    //     }printf("\n");
+    //     // printf("%lf,%lf\n",res_n,res_p);
+    // }
 
     double res_p = 0;
     double res = 0;
@@ -196,12 +196,12 @@ __device__ __host__ __forceinline__ double bigInteger2udouble(unsigned long long
         }
     }
     base = 1.0;
-    if(tid==0){
-        for(int i = 0; i < size; i++){
-            printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
-        }printf("\n");
-        // printf("%lf,%lf\n",res_n,res_p);
-    }
+    // if(tid==0){
+    //     for(int i = 0; i < size; i++){
+    //         printf("%llu * (2 ** %d) + \t",temp[i],i * 64);
+    //     }printf("\n");
+    //     // printf("%lf,%lf\n",res_n,res_p);
+    // }
     for(int i = 0; i < size; i++){
         res_n += temp[i] * base;
         base*= twopow64;

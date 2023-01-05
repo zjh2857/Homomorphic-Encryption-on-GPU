@@ -135,7 +135,7 @@ class keyGen{
         // genRandom<<<N/1024,1024>>>(pub_b,scale);
 
         pub_b = rns.decompose(pub_b,N);
-        print<<<1,1>>>(pub_b);
+        // print<<<1,1>>>(pub_b);
         // rns.decompose(pub_b);
         for(int  i = 0; i < size; i++){
             forwardNTT(pub_b + N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
@@ -150,7 +150,7 @@ class keyGen{
         for(int i = 0; i < size; i++){
             polymuladd<<<N/1024,1024>>>(pri_b + N * i,pub_b + N * i,pub_a + N * i,pub_a + N * i,q[i],mu[i],q_bit[i]);
         }
-        print<<<1,1>>>(pub_b);
+        // print<<<1,1>>>(pub_b);
         pub.set(pub_a,pub_b);
         pri.set(pri_b);
 
