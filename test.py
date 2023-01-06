@@ -49,7 +49,7 @@ print(t)
 # print(np.round(res*10000))
 # A = vandermonde(xi,M)
 # C = vandermondeinv(xi,M)
-# B = np.linalg.inv(A)
+B = np.linalg.inv(A)
 
 # # print(C)
 # # print(B.T*8-A)

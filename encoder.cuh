@@ -207,6 +207,10 @@ class Encoder{
                 forwardNTT(ntt_in+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
             }
             // print<<<1,1>>>(ntt_in);
+            // print_d<<<1,1>>>(ntt_in,0);
+            // print_d<<<1,1>>>(ntt_in,2048);
+            // print_d<<<1,1>>>(ntt_in,4096);
+
             return ntt_in;
         }
         double* decode(unsigned long long* encodeVec){
@@ -281,7 +285,7 @@ class Encoder{
             // for(int i = 0; i < decomposeSize; i++){
             //     forwardNTT(temp1 + N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
             // }
-            // print<<<1,1>>>(temp1);
+            print<<<1,1>>>(temp1);
             // for(int i = 0; i < decomposeSize; i++){
             //     // forwardNTT(temp2 + N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
             // }

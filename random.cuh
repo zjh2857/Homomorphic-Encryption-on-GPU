@@ -5,9 +5,9 @@ __global__ void genRandom(unsigned long long *randomVec,unsigned long long scale
     // randomVec[tid] = (1) * scale;
     // randomVec[tid] = 0;
     // if(scale == 114514){
-    //     if(tid != 114514){
+    //     if(tid == 1){
     //         // randomVec[tid] = 1179648;
-    //         randomVec[tid] = tid * 2;
+    //         randomVec[tid] = 1;
 
     //     }else{
     //         randomVec[tid] = 0;

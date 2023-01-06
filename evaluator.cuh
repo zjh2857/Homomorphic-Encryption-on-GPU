@@ -11,6 +11,7 @@ class Evaluator{
     int N;
     unsigned long long** psiTable;
     unsigned long long** psiinvTable;   
+    unsigned long long** psiRotTable;
     unsigned long long* psi;
     unsigned long long* psiinv;
     unsigned long long* q;
@@ -30,16 +31,22 @@ class Evaluator{
         q_bit = (unsigned long long *)malloc(size * sizeof(unsigned long long));
         psiTable = (unsigned long long**)malloc(size * sizeof(unsigned long long *));
         psiinvTable = (unsigned long long**)malloc(size * sizeof(unsigned long long *));
+        psiRotTable = (unsigned long long**)malloc(size * sizeof(unsigned long long *));
         getParams(q, psi, psiinv, q_bit, N);
         mu = (unsigned long long*)malloc(size * sizeof(unsigned long long));
         for(int i = 0; i < size; i++){
             cudaMalloc(&psiTable[i], N * sizeof(unsigned long long));
             cudaMalloc(&psiinvTable[i], N * sizeof(unsigned long long));
+            cudaMalloc(&psiRotTable[i], N * sizeof(unsigned long long));
         }
         for(int i = 0; i < size; i++){
             fillTablePsi128<<<N/1024,1024>>>(psi[i], q[i], psiinv[i], psiTable[i], psiinvTable[i], log2(N));
             uint128_t mu1 = uint128_t::exp2(q_bit[i] * 2);
             mu[i] = (mu1 / q[i]).low;
+        }
+        for(int i = 0; i < size; i++){
+            // unsigned long long psiRot = modpow128(psi[i],5,q[i]);
+            fillTablePsi128Rot<<<N/1024,1024>>>(q[i],psiTable[i],psiRotTable[i]);
         }
     }
     // void addPlain(cipherText cipter, unsigned long long* plain){
@@ -181,6 +188,100 @@ class Evaluator{
         }
         cipherText res;
         res.set(a,b);
+        return res;
+    }
+    // void rotation(unsigned long long *plain){
+    //     unsigned long long *temp;
+    //     Check(cudaMalloc((void**)&temp, N * size * sizeof(unsigned long long)));
+    //     cudaMemcpy(temp,plain,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+    //     for(int i = 0; i < size; i++){
+    //         inverseNTT(plain + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
+    //     }
+    //     for(int i = 0; i < size; i++){
+    //         cudarotation<<<N/1024,1024>>>(plain + N * i,temp + N * i,q[i],1 * 2 + 1,N);
+    //     }
+    //     cudaMemcpy(plain,temp,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+    //     for(int i = 0; i < size; i++){
+    //         forwardNTT(plain+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+    //     }
+    //     // for(int i = 0; i < size; i++){
+    //     //     polyadd<<<N/1024,1024>>>(plain + N * i,temp + N * i,plain + N * i, N,q[i]);
+    //     // }
+    //     // print<<<1,1>>>(plain);
+    // }
+    void sum(unsigned long long *plain){
+        unsigned long long *temp1,*temp2;
+        Check(cudaMalloc((void**)&temp1, N * size * sizeof(unsigned long long)));
+        Check(cudaMalloc((void**)&temp2, N * size * sizeof(unsigned long long)));
+        // cudaMemcpy(temp,plain,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+        for(int i = 0; i < size; i++){
+            inverseNTT(plain + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
+        }
+        for(int slot_idx = 0; slot_idx < N/2;slot_idx++){
+            for(int i = 0; i < size; i++){
+                cudarotation<<<N/1024,1024>>>(plain + N * i,plain + N * i,q[i],3,N);
+            }
+            for(int i = 0; i < size; i++){
+                polyadd<<<N/1024,1024>>>(plain + N * i,temp2 + N * i,temp2 + N * i, N,q[i]);
+            }
+        }
+
+        cudaMemcpy(plain,temp2,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+        for(int i = 0; i < size; i++){
+            forwardNTT(plain+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+        }
+    }
+    cipherText sum(cipherText cipher, galoisKey key){
+        unsigned long long *temp1,*temp2,*res_a,*res_b;
+        cipherText res;
+        Check(cudaMalloc((void**)&temp1, N * size * sizeof(unsigned long long)));
+        Check(cudaMalloc((void**)&temp2, N * size * sizeof(unsigned long long)));
+        // cudaMemcpy(temp,plain,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+        Check(cudaMalloc((void**)&res_a, N * size * sizeof(unsigned long long)));
+        Check(cudaMalloc((void**)&res_b, N * size * sizeof(unsigned long long)));
+        cudaMemcpy(res_a,cipher.a,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+        cudaMemcpy(res_b,cipher.b,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+
+        for(int slot_idx = 0; slot_idx < N/2 - 1;slot_idx++){
+            for(int i = 0; i < size; i++){
+                inverseNTT(cipher.a + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
+                inverseNTT(cipher.b + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
+            }
+            for(int i = 0; i < size; i++){
+                cudarotation<<<N/1024,1024>>>(cipher.a + N * i,cipher.a + N * i,q[i],3,N);
+                cudarotation<<<N/1024,1024>>>(cipher.b + N * i,cipher.b + N * i,q[i],3,N);
+            }
+
+            for(int i = 0; i < size; i++){
+                forwardNTT(cipher.a+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+                forwardNTT(cipher.b+N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+            }
+
+            for(int i = 0; i < size; i++){
+                polymuladd<<<N/1024,1024>>>(cipher.b + N * i,key.a + N * i,cipher.a + N * i,cipher.a + N * i,q[i],mu[i],q_bit[i]);
+                polymul<<<N/1024,1024>>>(cipher.b + N * i,key.b + N * i,cipher.b + N * i,q[i],mu[i],q_bit[i]);
+            }
+            for(int i = 0; i < size; i++){
+                polyadd<<<N/1024,1024>>>(res_a + N * i,cipher.a + N * i,res_a + N * i, N,q[i]);
+                polyadd<<<N/1024,1024>>>(res_b + N * i,cipher.b + N * i,res_b + N * i, N,q[i]);
+            }
+        }
+        res.set(res_a,res_b);
+        return res;
+    }
+    cipherText innerProduct(cipherText& cipher1,cipherText& cipher2 ,galoisKey galois,relienKey relien_key){
+        auto mul_res = mulcipter(cipher1,cipher2);
+        auto relien_res = relien(mul_res,relien_key);
+
+        cipherText res = sum(relien_res,galois);
+        return res;
+    }
+
+    cipherText innerProduct(cipherText& cipher1,unsigned long long *plain ,galoisKey galois,relienKey relien_key){
+        mulPlain(cipher1,plain);
+        // auto relien_res = relien(mul_res,relien_key);
+
+        cipherText res = sum(cipher1,galois);
         return res;
     }
 };

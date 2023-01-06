@@ -125,3 +125,14 @@ __global__ void cudaRescale(unsigned long long *a, unsigned long long *b,unsigne
     else
         a[i] = rc.low - q;
 }
+
+__global__ void cudarotation(unsigned long long* a, unsigned long long* buff,unsigned long long q,unsigned long long galois_elt,unsigned long long n){
+    unsigned long long tid = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned long long index_raw = tid * galois_elt;
+    unsigned long long index = index_raw & (n-1);
+    unsigned long long rval = a[tid];
+    if((index_raw / n) & 1){
+        rval = (q - rval) % q;
+    }
+    buff[index] = rval;
+}

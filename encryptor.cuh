@@ -70,11 +70,16 @@ class privateKey:public doublePoly{
 class relienKey:public doublePoly{
 
 };
+class galoisKey:public doublePoly{
+
+};
+
 class keyGen{
     public:
     publicKey pub;
     privateKey pri;
     relienKey relien;
+    galoisKey galois;
     int N;
     double scale;
     unsigned long long** psiTable;
@@ -116,11 +121,13 @@ class keyGen{
         }
         ntt = 0;
 
-        unsigned long long *pub_a,*pub_b,*pri_b,*relien_a,*relien_b,*e;
+        unsigned long long *pub_a,*pub_b,*pri_b,*relien_a,*relien_b,*e,*galois_a,*galois_b;
         Check(cudaMalloc((void**)&pub_a, N * size * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&pub_b, N * size * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&relien_a, N * size * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&relien_b, N * size * sizeof(unsigned long long)));
+        Check(cudaMalloc((void**)&galois_a, N * size * sizeof(unsigned long long)));
+        Check(cudaMalloc((void**)&galois_b, N * size * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&pri_b, N * size * sizeof(unsigned long long)));
         Check(cudaMalloc((void**)&e, N * size * sizeof(unsigned long long)));
         // Check(cudaMalloc((void**)&e, N * sizeof(unsigned long long)));
@@ -179,6 +186,26 @@ class keyGen{
             polyadd<<<N/1024,1024>>>(relien_a+ N * i,e + N * i,relien_a + N * i,N,q[i]);
         }        
         relien.set(relien_a,relien_b);
+
+        genRandom<<<N/1024,1024>>>(galois_b,scale);
+        galois_b = rns.decompose(galois_b,N);
+        for(int i = 0; i < size; i++){
+            forwardNTT(galois_b + N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+        }
+        cudaMemcpy(galois_a,pri_b,N * size * sizeof(unsigned long long),cudaMemcpyDeviceToDevice);
+        for(int i = 0; i < size; i++){
+            inverseNTT(galois_a + N * i,N,ntt,q[i],mu[i],q_bit[i],psiinvTable[i]);
+        }
+        for(int i = 0; i < size; i++){
+            cudarotation<<<N/1024,1024>>>(galois_a + N * i,galois_a + N * i,q[i],3,N);
+        }
+        for(int i = 0; i < size; i++){
+            forwardNTT(galois_a + N * i,N,ntt,q[i],mu[i],q_bit[i],psiTable[i]);
+        }
+        for(int i = 0; i < size; i++){
+            polymulminus<<<N/1024,1024>>>(galois_b + N * i,pri_b + N * i,galois_a + N * i,galois_a + N * i,q[i],mu[i],q_bit[i]);
+        }
+        galois.set(galois_a,galois_b);
     };
     // ~keyGen(){
     //     cudaFree(psiTable);

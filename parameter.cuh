@@ -21,7 +21,11 @@ __global__ void fillTablePsi64(unsigned psi, unsigned q, unsigned psiinv, unsign
     psiTable[i] = modpow64(psi, bitReverse(i, nbit), q);
     psiinvTable[i] = modpow64(psiinv, bitReverse(i, nbit), q);
 }
-
+__global__ void fillTablePsi128Rot(unsigned long long q, unsigned long long psiTable[],unsigned long long psiRotTable[])
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    psiRotTable[i] = modpow128(psiTable[i], 3, q);
+}
 void getParams(unsigned long long& q, unsigned long long& psi, unsigned long long& psiinv, unsigned long long& ninv, unsigned int& q_bit, unsigned long long n)
 {
     if (n == 2048)
